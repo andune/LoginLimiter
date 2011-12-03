@@ -1,0 +1,39 @@
+# global server login limit. Set less than your server.properties to have room for
+# reserved logins
+globalLimit: 20
+
+# any groups listed here can login even if at the global Limit
+globalOverridePerms:
+  - group.Moderator
+
+# define any per-group limits
+limits:
+  # this name is irrelevant, just has to be unique. "entry1", "entry2", "foo3".. whatever
+  entry1:
+    # permissions listed here apply to this entry
+    permissions:
+      - group.Guest
+      - group.Newbie
+
+    # the limit for the groups in this entry
+    limit: 5
+
+    # the limit doesn't apply until server is at least at this user load. Comment
+    # out or set to -1 to have limit apply no matter what current server pop is.
+    ifOver: 10
+
+    # this can be used to require someone else be online in order for people in
+    # this entry to login. For example you can require that a mod be online in
+    # order for Guests to login.
+    requiredOnlinePerms:
+      - group.Moderator
+      - group.Admin
+
+    # If this is true, the requireOnlinePerms only applies to new logins. Anyone
+    # who has logged in at least once before will be exempt from the
+    # requiredOnlinePerms check.
+    requiredPermsOnlyForNew: true
+
+messages:
+  limitReached: "The number of reserved slots for your rank has been reached. Try again later"
+  noPermsOnlineString: "The required rank is not online at this time"

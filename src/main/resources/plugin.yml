@@ -1,0 +1,4 @@
+name: LoginLimiter
+main: org.morganm.whologger.LoginLimiter
+version: 0.1
+author: morganm
