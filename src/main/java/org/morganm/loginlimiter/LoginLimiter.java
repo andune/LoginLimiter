@@ -22,18 +22,24 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  */
 public class LoginLimiter extends JavaPlugin {
-	private static final Logger log = Logger.getLogger(LoginLimiter.class.toString());
-	private static final String logPrefix = "[LoginLimiter] ";
+	public static final Logger log = Logger.getLogger(LoginLimiter.class.toString());
+	public static final String logPrefix = "[LoginLimiter] ";
+	
+	public static final String CONFIG_GROUP_LIMIT = "groupLimits.";
+	public static final String CONFIG_GLOBAL = "global.";
 	
     private Permission vaultPermission = null;
+    private LoginQueue loginQueue;
 	private String version;
 
 	@Override
 	public void onEnable() {
 		version = getDescription().getVersion();
 		setupVaultPermissions();
+		loginQueue = new LoginQueue(this);
 		
 		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, new MyPlayerListener(this), Priority.Lowest, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, new MyPlayerListener(this), Priority.Lowest, this);
 		
 		log.info(logPrefix + "version "+version+" is enabled");
 	}
@@ -42,6 +48,8 @@ public class LoginLimiter extends JavaPlugin {
 	public void onDisable() {
 		log.info(logPrefix + "version "+version+" is disabled");
 	}
+	
+	public LoginQueue getLoginQueue() { return loginQueue; }
 
     private Boolean setupVaultPermissions()
     {
@@ -66,6 +74,10 @@ public class LoginLimiter extends JavaPlugin {
     	if( file.exists() )
     		return false;
     	
+    	/* It seems all player files go to the defaultWorld, so this part is unnecessary.
+    	 * Not sure if it's possible to change the default world, should probably look
+    	 * into that and adjust the above check accordingly.
+    	 * 
     	// failing that, check all worlds
     	List<World> worlds = getServer().getWorlds();
     	for(World w : worlds) {
@@ -73,6 +85,7 @@ public class LoginLimiter extends JavaPlugin {
     		if( file.exists() )
     			return false;
     	}
+    	*/
     	
     	// if we didn't find any record of this player on any world, they must be new
     	return true;
@@ -91,6 +104,7 @@ public class LoginLimiter extends JavaPlugin {
     		return p.hasPermission(permission);		// fall back to superperms
     }
     
+    /*
     public boolean isInGroup(Player p, String group) {
     	if( group == null )
     		return false;
@@ -100,4 +114,5 @@ public class LoginLimiter extends JavaPlugin {
     	else
     		return false;
     }
+    */
 }

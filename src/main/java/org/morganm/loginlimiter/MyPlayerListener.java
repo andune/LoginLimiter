@@ -11,6 +11,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
 
 /**
@@ -18,21 +19,128 @@ import org.bukkit.event.player.PlayerLoginEvent.Result;
  *
  */
 public class MyPlayerListener extends PlayerListener {
+	private final String CONFIG_GROUP_LIMIT = LoginLimiter.CONFIG_GROUP_LIMIT;
+	private final String CONFIG_GLOBAL = LoginLimiter.CONFIG_GLOBAL;
+	
 	private LoginLimiter plugin;
 	
 	public MyPlayerListener(LoginLimiter plugin) {
 		this.plugin = plugin;
 	}
 	
-	@SuppressWarnings("unchecked")
 	@Override
 	public void onPlayerLogin(PlayerLoginEvent event) {
 		// if the login was already refused by another plugin, don't do anything
 		if( event.getResult() != Result.ALLOWED )
 			return;
 		
+		int freeCount = 0;
+		
+		freeCount = checkGlobalLimits(event);
+		
+		if( event.getResult() == Result.ALLOWED ) {
+			int tmp = checkGroupLimits(event);
+			
+			// if group limit is lower than global, we use that as our freeCount limit
+			if( tmp != -1 && tmp < freeCount )
+				freeCount = tmp;
+		}
+		
+		// if we get this far and the login has not been refused, then there is
+		// possibly a free slot to be had for this player. Now we need to check
+		// the queue to see if they are eligible for that free slot based on
+		// who else might be waiting ahead of them.
+		if( event.getResult() == Result.ALLOWED ) {
+			LoginQueue queue = plugin.getLoginQueue();
+			Player player = event.getPlayer();
+			
+			// if the queue is smaller than the queue+reconnect size, then that means
+			// there are plenty of free slots and so the player can have this slot. If
+			// not, run some queue checks.
+			if( (queue.getQueueSize() + queue.getReconnectQueueSize()) < freeCount ) {
+				boolean playerAdded = false;
+				// if player is not in the queue, add them to it
+				if( !queue.isPlayerQueued(player) ) {
+					queue.addQueuedPlayer(player);
+					playerAdded = true;
+				}
+				
+				if( !queue.isEligible(player, freeCount) ) {
+					String msg = null;
+					if( playerAdded ) {
+						msg = plugin.getConfig().getString("messages.queued", "You have been added to the queue. Reconnect at least once every ${reconnectSeconds} seconds to keep your queue position.");
+						msg = msg.replaceAll("${reconnectSeconds}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
+					}
+					else {
+						msg = plugin.getConfig().getString("messages.queued", "You are number ${queueNumber} of ${queueTotal} in the queue.Reconnect at least once every ${reconnectSeconds} seconds to keep your queue position.");
+						msg = msg.replaceAll("${queueNumber}", Integer.toString(queue.getQueuePosition(player)));
+						msg = msg.replaceAll("${queueTotal}", Integer.toString(queue.getQueueSize()));
+						msg = msg.replaceAll("${reconnectSeconds}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
+					}
+					
+					event.disallow(Result.KICK_OTHER, msg);
+				}
+			}
+		}
+	}
+	
+	@Override
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		plugin.getLoginQueue().addReconnectPlayer(event.getPlayer());
+	}
+	
+	/** Check to see if player is allowed to login based on global limit settings. Will
+	 * modify the event to disallow the login if they are not.
+	 * 
+	 * @param event
+	 * @return the number of available slots on the server
+	 */
+	@SuppressWarnings("unchecked")
+	private int checkGlobalLimits(PlayerLoginEvent event) {
+		Player p = event.getPlayer();
+		Player[] onlinePlayers = plugin.getServer().getOnlinePlayers();
+		
+		FileConfiguration config = plugin.getConfig();
+		
+		int globalLimit = config.getInt(CONFIG_GLOBAL+"limit", -1);
+		globalLimit -= plugin.getLoginQueue().getReconnectQueueSize();
+		
+		if( globalLimit > 0 && onlinePlayers.length >= globalLimit ) {
+			boolean exempt = false;
+
+			// check to see if they are part of the exempt perm list
+			List<String> globalExemptPerms = config.getStringList(CONFIG_GLOBAL+"limitExemptPerms");
+			if( globalExemptPerms != null ) {
+				for(String perm : globalExemptPerms) {
+					if( plugin.has(p, perm) ) {
+						exempt = true;
+						break;
+					}
+				}
+			}
+			
+			if( !exempt ) {
+				String msg = plugin.getConfig().getString("messages.globalLimitReached", "The number of reserved slots for your rank has been reached. Try again later");
+				event.disallow(Result.KICK_OTHER, msg);
+				return 0;
+			}
+		}
+		
+		return globalLimit - onlinePlayers.length;
+	}
+	
+	/** Check to see if a player is allowed to login based on group limits.  Will
+	 * modify the event to disallow the login if they are not.
+	 * 
+	 * @param event
+	 * @return the remaining slots for this player's group category, or -1 if this player is part of
+	 * an unlimited group
+	 */
+	@SuppressWarnings("unchecked")
+	private int checkGroupLimits(PlayerLoginEvent event) {
 		Player p = event.getPlayer();
 
+		int smallestLimit = -1;
 		boolean limitAllowed = true;
 		boolean requiredPermsLoginFlag = true;
 		
@@ -42,32 +150,17 @@ public class MyPlayerListener extends PlayerListener {
 		ConfigurationSection section = config.getConfigurationSection("limits");
 		Set<String> nodes = section.getKeys(false);
 		
-		// do global limit checks first
-		int globalLimit = config.getInt("globalLimit", -1);
-		if( globalLimit != -1 && onlinePlayers.length >= globalLimit ) {
-			boolean exempt = false;
-			List<String> globalExemptPerms = config.getStringList("globalOverridePerms");
-			if( globalExemptPerms != null ) {
-				for(String perm : globalExemptPerms) {
-					if( plugin.has(p, perm) ) {
-						exempt = true;
-						break;
-					}
-				}
-			}
-		}
-		
 		if( nodes != null ) {
 			for(String node : nodes) {
-				List<String> perms = config.getStringList("limits."+node+".permissions");
+				List<String> perms = config.getStringList(CONFIG_GROUP_LIMIT+node+".permissions");
 				if( perms != null ) {
 					// if the player has one of the perms listed, then this limit applies to them
 					for(String perm : perms) {
 						if( plugin.has(p, perm) ) {
-							int limit = config.getInt("limits."+node+".limit", -1);
-							int ifOver = config.getInt("limits."+node+".ifOver", -1);
-							List<String> requiredPerms = config.getShortList("limits."+node+".requiredOnlinePerms");
-							boolean requiredPermsOnlyForNew = config.getBoolean("limits."+node+".requiredPermsOnlyForNew", false);
+							int limit = config.getInt(CONFIG_GROUP_LIMIT+node+".limit", -1);
+							int ifOver = config.getInt(CONFIG_GROUP_LIMIT+node+".ifOver", -1);
+							List<String> requiredPerms = config.getShortList(CONFIG_GROUP_LIMIT+node+".requiredOnlinePerms");
+							boolean requiredPermsOnlyForNew = config.getBoolean(CONFIG_GROUP_LIMIT+node+".requiredPermsOnlyForNew", false);
 							
 							// boolean flag to determine if the required permission is online. This
 							// is used so you can require a moderator be in order for new guests to
@@ -91,7 +184,7 @@ public class MyPlayerListener extends PlayerListener {
 							// for explicit "infinite" limit
 							if( limit == -1 ) {
 								limitAllowed = true;
-								return;
+								return -1;
 							}
 							
 							// if we already know from a previous iteration through the loop
@@ -134,6 +227,10 @@ public class MyPlayerListener extends PlayerListener {
 								}
 							}
 							
+							// record the smallest limit remaining that we encounter for this player
+							if( smallestLimit == -1 || (limit - groupCount) < smallestLimit )
+								smallestLimit = limit - groupCount;
+							
 							// if we get here, that means we've looped through all online players.
 							// if there was a requiredPerms requirement that went unmet, then
 							// isRequiredPermsOnline will still be false. In that case, set the
@@ -157,5 +254,7 @@ public class MyPlayerListener extends PlayerListener {
 			String msg = plugin.getConfig().getString("messages.noPermsOnlineString", "The required rank is not online at this time");
 			event.disallow(Result.KICK_OTHER, msg);
 		}
+		
+		return smallestLimit;
 	}
 }

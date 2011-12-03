@@ -1,13 +1,36 @@
-# global server login limit. Set less than your server.properties to have room for
-# reserved logins
-globalLimit: 20
+global:
+  # global server login limit. Set less than your server.properties to have room for
+  # reserved logins
+  limit: 20
 
-# any groups listed here can login even if at the global Limit
-globalOverridePerms:
-  - group.Moderator
+  # any groups listed here can login even if server is at the global Limit
+  limitExemptPerms:
+    - group.Moderator
+
+  # the time, in seconds, that someone must attempt to login in order to hold
+  # their place in the queue.
+  queueLoginTime: 120
+
+  # the max time, in seconds, someone is allowed to be in the queue before their
+  # place in the queue is erased and they start over. You can set this to 0 to
+  # not use this setting, in which case the only setting that matters is the
+  # queueLoginTime above.
+  queueMaxTime: 600
+
+  # how many seconds a player has to reconnect after disconnecting (their
+  # spot on the server is reserved for only this long)
+  reconnectTime: 60
+
+  # if defined, higher ranks skip lower ranks in the queue
+#  queueRankPerms:
+#    "100": group.Guest
+#    "200": group.Member
+#    "300": group.PaidMember
+#    "400": group.Moderator
+#    "1000": group.Admin
 
 # define any per-group limits
-limits:
+groupLimits:
   # this name is irrelevant, just has to be unique. "entry1", "entry2", "foo3".. whatever
   entry1:
     # permissions listed here apply to this entry
