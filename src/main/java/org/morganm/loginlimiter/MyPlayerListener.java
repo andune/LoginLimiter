@@ -5,27 +5,33 @@ package org.morganm.loginlimiter;
 
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerLoginEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
  * @author morganm
  *
  */
 public class MyPlayerListener extends PlayerListener {
-	private final String CONFIG_GROUP_LIMIT = LoginLimiter.CONFIG_GROUP_LIMIT;
-	private final String CONFIG_GLOBAL = LoginLimiter.CONFIG_GLOBAL;
+	private static final Logger log = LoginLimiter.log;
+	private static final String logPrefix = LoginLimiter.logPrefix;
+	private static final String CONFIG_GROUP_LIMIT = LoginLimiter.CONFIG_GROUP_LIMIT;
+	private static final String CONFIG_GLOBAL = LoginLimiter.CONFIG_GLOBAL;
 	
-	private LoginLimiter plugin;
+	private final LoginLimiter plugin;
+	private final Debug debug;
+	private boolean warningNoGroupLimitsDisplayed = false;
 	
 	public MyPlayerListener(LoginLimiter plugin) {
 		this.plugin = plugin;
+		this.debug = Debug.getInstance();
 	}
 	
 	@Override
@@ -37,27 +43,34 @@ public class MyPlayerListener extends PlayerListener {
 		int freeCount = 0;
 		
 		freeCount = checkGlobalLimits(event);
+		debug.debug("checkGlobalLimits result=",freeCount);
 		
 		if( event.getResult() == Result.ALLOWED ) {
 			int tmp = checkGroupLimits(event);
+			debug.debug("checkGroupLimits result=",tmp);
 			
 			// if group limit is lower than global, we use that as our freeCount limit
 			if( tmp != -1 && tmp < freeCount )
 				freeCount = tmp;
 		}
+		debug.debug("freeCount=",freeCount);
 		
 		// if we get this far and the login has not been refused, then there is
 		// possibly a free slot to be had for this player. Now we need to check
 		// the queue to see if they are eligible for that free slot based on
 		// who else might be waiting ahead of them.
 		if( event.getResult() == Result.ALLOWED ) {
+			debug.debug("slot is available, checking queue");
 			LoginQueue queue = plugin.getLoginQueue();
 			Player player = event.getPlayer();
 			
-			// if the queue is smaller than the queue+reconnect size, then that means
+			// if there are more free slots than the queue+reconnect size, then that means
 			// there are plenty of free slots and so the player can have this slot. If
 			// not, run some queue checks.
-			if( (queue.getQueueSize() + queue.getReconnectQueueSize()) < freeCount ) {
+			if( (queue.getQueueSize() + queue.getReconnectQueueSize()) > freeCount ) {
+				debug.debug("queue size larger than freeCount, running queue checks.",
+						" queueSize=",queue.getQueueSize(),
+						" queueReconnectSize=",queue.getReconnectQueueSize());
 				boolean playerAdded = false;
 				// if player is not in the queue, add them to it
 				if( !queue.isPlayerQueued(player) ) {
@@ -81,6 +94,8 @@ public class MyPlayerListener extends PlayerListener {
 					event.disallow(Result.KICK_OTHER, msg);
 				}
 			}
+			else
+				debug.debug("more slots available than people in queue, login allowed");
 		}
 	}
 	
@@ -147,7 +162,14 @@ public class MyPlayerListener extends PlayerListener {
 		Player[] onlinePlayers = plugin.getServer().getOnlinePlayers();
 		
 		FileConfiguration config = plugin.getConfig();
-		ConfigurationSection section = config.getConfigurationSection("limits");
+		ConfigurationSection section = config.getConfigurationSection("groupLimits");
+		if( section == null ) {
+			if( !warningNoGroupLimitsDisplayed ) {
+				log.warning(logPrefix + "config.yml mising \"groupLimits\" section!");
+				warningNoGroupLimitsDisplayed = true;
+			}
+			return -1;
+		}
 		Set<String> nodes = section.getKeys(false);
 		
 		if( nodes != null ) {

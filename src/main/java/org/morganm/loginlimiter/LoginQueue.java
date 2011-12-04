@@ -27,14 +27,17 @@ public class LoginQueue {
 	private final HashMap<String, Long> reconnectQueue = new HashMap<String, Long>();
 	private long lastCleanup = 0;
 	
-	private LoginLimiter plugin;
+	private final LoginLimiter plugin;
+	private final Debug debug;
 	
 	public LoginQueue(LoginLimiter plugin) {
 		this.plugin = plugin;
+		this.debug = Debug.getInstance();
 	}
 	
 	public void addQueuedPlayer(Player player) {
 		String playerName = player.getName();
+		debug.debug("addQueuedPlayer: playerName=",playerName);
 		
 		PlayerInfo pInfo = new PlayerInfo();
 		pInfo.firstLoginAttempt = System.currentTimeMillis();
@@ -49,6 +52,7 @@ public class LoginQueue {
 	 * @param player
 	 */
 	public void addReconnectPlayer(Player player) {
+		debug.debug("addReconnectPlayer: player=",player);
 		reconnectQueue.put(player.getName(), System.currentTimeMillis());
 	}
 	
@@ -91,7 +95,11 @@ public class LoginQueue {
 		int currentRank = 0;
 		
 		ConfigurationSection section = plugin.getConfig().getConfigurationSection(CONFIG_GLOBAL+"queueRankPerms");
-		Set<String> ranks = section.getKeys(false);
+		
+		Set<String> ranks = null;
+		if( section != null )
+			 ranks = section.getKeys(false);
+		
 		if( ranks != null ) {
 			for(String strRank : ranks) {
 				try {
@@ -109,6 +117,7 @@ public class LoginQueue {
 			}
 		}
 		
+		debug.debug("getPlayerRank: player=",player," rank=",currentRank);
 		return currentRank;
 	}
 	
@@ -128,9 +137,15 @@ public class LoginQueue {
 			int loginTime = config.getInt(CONFIG_GLOBAL+"queueLoginTime", 0) * 1000;
 			int reconnectTime = config.getInt(CONFIG_GLOBAL+"reconnectTime", 0) * 1000;
 			
-			// TODO: add reconnectTime cleanup
+			Set<Entry<String,Long>> reconnectEntrySet = reconnectQueue.entrySet();
+			for(Iterator<Entry<String,Long>> i = reconnectEntrySet.iterator(); i.hasNext();) {
+				Entry<String,Long> e = i.next();
+				
+				if( (System.currentTimeMillis() - e.getValue()) > reconnectTime )
+					i.remove();
+			}
 			
-			long currentTime = System.currentTimeMillis();
+			final long currentTime = System.currentTimeMillis();
 			Set<Entry<String,PlayerInfo>> entrySet = loginQueue.entrySet();
 			for(Iterator<Entry<String,PlayerInfo>> i = entrySet.iterator(); i.hasNext();) {
 				Entry<String,PlayerInfo> e = i.next();
@@ -144,6 +159,10 @@ public class LoginQueue {
 				
 				if( p != null || (maxTime > 0 && (currentTime - pInfo.firstLoginAttempt) > maxTime)
 						|| (loginTime > 0 && (currentTime - pInfo.lastLoginAttempt) > loginTime) ) {
+					debug.debug("removing player from queue, p=",p,
+							" firstLoginAttempt=",pInfo.firstLoginAttempt,
+							" lastLoginAttempt=",pInfo.lastLoginAttempt,
+							" currentTime=",currentTime);
 					i.remove();
 				}
 			}

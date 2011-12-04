@@ -4,12 +4,14 @@
 package org.morganm.loginlimiter;
 
 import java.io.File;
-import java.util.List;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
 import net.milkbowl.vault.permission.Permission;
 
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Priority;
 import org.bukkit.event.Event.Type;
@@ -35,6 +37,10 @@ public class LoginLimiter extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		version = getDescription().getVersion();
+		
+    	Debug.getInstance().init(log, logPrefix+"[DEBUG] ", false);
+		loadConfig();
+
 		setupVaultPermissions();
 		loginQueue = new LoginQueue(this);
 		
@@ -47,6 +53,16 @@ public class LoginLimiter extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		log.info(logPrefix + "version "+version+" is disabled");
+	}
+	
+	public void loadConfig() {
+		File file = new File(getDataFolder(), "config.yml");
+		if( !file.exists() ) {
+			copyConfigFromJar("config.yml", file);
+		}
+		
+		getConfig();
+		Debug.getInstance().setDebug(getConfig().getBoolean("debug", false));
 	}
 	
 	public LoginQueue getLoginQueue() { return loginQueue; }
@@ -115,4 +131,30 @@ public class LoginLimiter extends JavaPlugin {
     		return false;
     }
     */
+    
+	/** Code adapted from Puckerpluck's MultiInv plugin.
+	 * 
+	 * @param string
+	 * @return
+	 */
+    private void copyConfigFromJar(String fileName, File outfile) {
+        File file = new File(getDataFolder(), fileName);
+        
+        if (!outfile.canRead()) {
+            try {
+            	JarFile jar = new JarFile(getFile());
+            	
+                file.getParentFile().mkdirs();
+                JarEntry entry = jar.getJarEntry(fileName);
+                InputStream is = jar.getInputStream(entry);
+                FileOutputStream os = new FileOutputStream(outfile);
+                byte[] buf = new byte[(int) entry.getSize()];
+                is.read(buf, 0, (int) entry.getSize());
+                os.write(buf);
+                os.close();
+            } catch (Exception e) {
+                log.warning(logPrefix + " Could not copy config file "+fileName+" to default location");
+            }
+        }
+    }
 }
