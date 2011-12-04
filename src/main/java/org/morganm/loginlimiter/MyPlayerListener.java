@@ -55,19 +55,21 @@ public class MyPlayerListener extends PlayerListener {
 		}
 		debug.debug("freeCount=",freeCount);
 		
+		// need to re-arrange so player gets added to queue when server is full
+		
 		// if we get this far and the login has not been refused, then there is
 		// possibly a free slot to be had for this player. Now we need to check
 		// the queue to see if they are eligible for that free slot based on
 		// who else might be waiting ahead of them.
-		if( event.getResult() == Result.ALLOWED ) {
-			debug.debug("slot is available, checking queue");
+//		if( event.getResult() != Result.ALLOWED ) {
+//			debug.debug("slot is available, checking queue");
 			LoginQueue queue = plugin.getLoginQueue();
 			Player player = event.getPlayer();
 			
 			// if there are more free slots than the queue+reconnect size, then that means
 			// there are plenty of free slots and so the player can have this slot. If
 			// not, run some queue checks.
-			if( (queue.getQueueSize() + queue.getReconnectQueueSize()) > freeCount ) {
+			if( (queue.getQueueSize() + queue.getReconnectQueueSize()) >= freeCount ) {
 				debug.debug("queue size larger than freeCount, running queue checks.",
 						" queueSize=",queue.getQueueSize(),
 						" queueReconnectSize=",queue.getReconnectQueueSize());
@@ -81,22 +83,24 @@ public class MyPlayerListener extends PlayerListener {
 				if( !queue.isEligible(player, freeCount) ) {
 					String msg = null;
 					if( playerAdded ) {
-						msg = plugin.getConfig().getString("messages.queued", "You have been added to the queue. Reconnect at least once every ${reconnectSeconds} seconds to keep your queue position.");
-						msg = msg.replaceAll("${reconnectSeconds}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
+						msg = plugin.getConfig().getString("messages.queued", "Server full, you have been queued. Connect at least every ${reconnectSeconds} seconds hold spot");
+						msg = msg.replaceAll("\\$\\{reconnectSeconds\\}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
 					}
 					else {
-						msg = plugin.getConfig().getString("messages.queued", "You are number ${queueNumber} of ${queueTotal} in the queue.Reconnect at least once every ${reconnectSeconds} seconds to keep your queue position.");
-						msg = msg.replaceAll("${queueNumber}", Integer.toString(queue.getQueuePosition(player)));
-						msg = msg.replaceAll("${queueTotal}", Integer.toString(queue.getQueueSize()));
-						msg = msg.replaceAll("${reconnectSeconds}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
+						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect at least every ${reconnectSeconds} seconds hold spot");
+						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(player)));
+						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
+						msg = msg.replaceAll("\\$\\{reconnectSeconds\\}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"reconnectTime", 0)));
 					}
 					
 					event.disallow(Result.KICK_OTHER, msg);
 				}
 			}
-			else
-				debug.debug("more slots available than people in queue, login allowed");
-		}
+			else {
+				if( event.getResult() == Result.ALLOWED )
+					debug.debug("more slots available than people in queue, login allowed");
+			}
+//		}
 	}
 	
 	@Override
@@ -135,7 +139,7 @@ public class MyPlayerListener extends PlayerListener {
 			}
 			
 			if( !exempt ) {
-				String msg = plugin.getConfig().getString("messages.globalLimitReached", "The number of reserved slots for your rank has been reached. Try again later");
+				String msg = plugin.getConfig().getString("messages.globalLimitReached", "The server is full.");
 				event.disallow(Result.KICK_OTHER, msg);
 				return 0;
 			}
