@@ -44,6 +44,10 @@ public class LoginQueue {
 		pInfo.rank = getPlayerRank(playerName);
 		
 		loginQueue.put(playerName, pInfo);
+		
+		if( plugin.getConfig().getBoolean("verbose", true) )
+			log.info(logPrefix+"Player "+playerName+" added to the queue"
+					+ " (" + getQueuePosition(playerName) + "/" + loginQueue.size() + ")");
 	}
 	
 	/** Add a player to the reconnect queue, usually called when they have disconnected.
@@ -94,11 +98,19 @@ public class LoginQueue {
 	 * @param player
 	 */
 	public void playerLoggedIn(String playerName) {
+		debug.debug("playerLoggedIn(): removing player ",playerName," from queues");
+		
+		boolean wasRemoved = false;
+		
 		synchronized(LoginQueue.class) {
-			debug.debug("playerLoggedIn(): removing player ",playerName," from queues");
-			
-			reconnectQueue.remove(playerName);
-			loginQueue.remove(playerName);
+			if( reconnectQueue.remove(playerName) != null )
+				wasRemoved = true;
+			if(	loginQueue.remove(playerName) != null )
+				wasRemoved = true;
+		}
+		
+		if( wasRemoved && plugin.getConfig().getBoolean("verbose", true) ) {
+			log.info(logPrefix+"Player "+playerName+" logged in and removed from queue");
 		}
 	}
 	

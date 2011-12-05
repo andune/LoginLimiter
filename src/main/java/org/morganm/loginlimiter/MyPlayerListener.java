@@ -314,6 +314,12 @@ public class MyPlayerListener extends PlayerListener {
 		if( !requiredPermsLoginFlag ) {
 			String msg = plugin.getConfig().getString("messages.noPermsOnlineString", "The required rank is not online at this time");
 			event.disallow(Result.KICK_OTHER, msg);
+			if( plugin.getConfig().getBoolean("verbose", true) ) {
+				String preMsg = "Player ";
+				if( plugin.isNewPlayer(thisPlayer) )
+					preMsg = "New player ";
+				log.info(logPrefix+preMsg+thisPlayer+" denied login since required rank is not online at this time");
+			}
 		}
 		
 		return smallestLimit;

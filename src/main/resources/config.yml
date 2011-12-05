@@ -1,3 +1,6 @@
+# whether to display messages in the system log about queue activity
+verbose: true
+
 global:
   # global server login limit. Set less than your server.properties to have room for
   # reserved logins. You must always have at least 1 spot open in order for people
