@@ -35,14 +35,13 @@ public class LoginQueue {
 		this.debug = Debug.getInstance();
 	}
 	
-	public void addQueuedPlayer(Player player) {
-		String playerName = player.getName();
+	public void addQueuedPlayer(String playerName) {
 		debug.debug("addQueuedPlayer: playerName=",playerName);
 		
 		PlayerInfo pInfo = new PlayerInfo();
 		pInfo.firstLoginAttempt = System.currentTimeMillis();
 		pInfo.lastLoginAttempt = System.currentTimeMillis();
-		pInfo.rank = getPlayerRank(player);
+		pInfo.rank = getPlayerRank(playerName);
 		
 		loginQueue.put(playerName, pInfo);
 	}
@@ -66,9 +65,7 @@ public class LoginQueue {
 		return reconnectQueue.size();
 	}
 	
-	public int getQueuePosition(Player player) {
-		String playerName = player.getName();
-		
+	public int getQueuePosition(String playerName) {
 		int position = 1;
 		for(Entry<String,PlayerInfo> entry : loginQueue.entrySet()) {
 			if( playerName.equals(entry.getKey()) )
@@ -79,19 +76,33 @@ public class LoginQueue {
 		return position;
 	}
 	
-	public boolean isPlayerQueued(Player player) {
-		return isInReconnectQueue(player) || loginQueue.get(player.getName()) != null;
+	public boolean isPlayerQueued(String player) {
+		return isInReconnectQueue(player) || loginQueue.get(player) != null;
 	}
 	
-	public boolean isInReconnectQueue(Player player) {
+	public boolean isInReconnectQueue(String player) {
 		cleanupQueue();
-		if( reconnectQueue.get(player.getName()) != null )
+		if( reconnectQueue.get(player) != null )
 			return true;
 		else
 			return false;
 	}
 	
-	private int getPlayerRank(Player player) {
+	/** Called when a player successfully logs in to empty them from any queues
+	 * they might have been in.
+	 * 
+	 * @param player
+	 */
+	public void playerLoggedIn(String playerName) {
+		synchronized(LoginQueue.class) {
+			debug.debug("playerLoggedIn(): removing player ",playerName," from queues");
+			
+			reconnectQueue.remove(playerName);
+			loginQueue.remove(playerName);
+		}
+	}
+	
+	private int getPlayerRank(String player) {
 		int currentRank = 0;
 		
 		ConfigurationSection section = plugin.getConfig().getConfigurationSection(CONFIG_GLOBAL+"queueRankPerms");
@@ -119,6 +130,23 @@ public class LoginQueue {
 		
 		debug.debug("getPlayerRank: player=",player," rank=",currentRank);
 		return currentRank;
+	}
+	
+	/** Administrative method for manually clearing the queues.
+	 * 
+	 */
+	public void clearQueues() {
+		synchronized(LoginQueue.class) {
+			loginQueue.clear();
+			reconnectQueue.clear();
+		}
+	}
+	
+	public Set<String> getQueuedPlayers() {
+		return loginQueue.keySet();
+	}
+	public Set<String> getReconnectQueuedPlayers() {
+		return reconnectQueue.keySet();
 	}
 	
 	private void cleanupQueue() {
@@ -180,23 +208,22 @@ public class LoginQueue {
 	 * @param freeCount the free slots left (how far in the queue we can check)
 	 * @return true if the player is eligible to login based on the queue, false if not
 	 */
-	public boolean isEligible(Player player, int freeCount) {
-		if( player == null )
+	public boolean isEligible(String playerName, int freeCount) {
+		if( playerName == null )
 			return false;
 		if( freeCount < 1 )
 			return false;
 		
-		debug.debug("isEligible called for player ",player,", freeCount=",freeCount);
+		debug.debug("isEligible called for playerName ",playerName,", freeCount=",freeCount);
 		
-		String playerName = player.getName();
 		PlayerInfo pInfo = loginQueue.get(playerName);
 		
 		// if they're in the reconnect queue, they are allowed on
 		for(Entry<String,Long> entry : reconnectQueue.entrySet()) {
 			String queuePlayerName = entry.getKey();
-			debug.debug("checking queued player ",queuePlayerName," against current player ",player);
+			debug.debug("checking queued player ",queuePlayerName," against current player ",playerName);
 			if( playerName.equals(queuePlayerName) ) {
-				debug.debug("player ",player," is in reconnectQueue, isElligible returning true");
+				debug.debug("player ",playerName," is in reconnectQueue, isElligible returning true");
 				return true;
 			}
 		}
@@ -217,7 +244,7 @@ public class LoginQueue {
 		int count = 0;
 		for(Entry<String,PlayerInfo> entry : loginQueue.entrySet()) {
 			if( playerName.equals(entry.getKey()) ) {
-				debug.debug("player ",player," found in queue within an available slot, isElligible returning true");
+				debug.debug("player ",playerName," found in queue within an available slot, isElligible returning true");
 				return true;
 			}
 			
@@ -225,18 +252,18 @@ public class LoginQueue {
 			// we're checking in the queue, then player logging in skips the
 			// lower ranked player in the queue
 			if( pInfo.rank > entry.getValue().rank ) {
-				debug.debug("player ",player," has higher rank than queue slot ",count,", ignoring that queue slot");
+				debug.debug("player ",playerName," has higher rank than queue slot ",count,", ignoring that queue slot");
 				continue;
 			}
 			
 			// if we're over our freeCount limit, then this person is not yet eligible
 			if( ++count >= freeCount ) {
-				debug.debug("player ",player," found in queue beyond available slots, isElligible returning FALSE");
+				debug.debug("player ",playerName," found in queue beyond available slots, isElligible returning FALSE");
 				return false;
 			}
 		}
 		
-		debug.debug("player ",player," not found in queue, but there are plenty of free slots available, isElligible returning true");
+		debug.debug("player ",playerName," not found in queue, but there are plenty of free slots available, isElligible returning true");
 		// if we get here, we didn't hit the freeCount limit, so we are allowed to login
 		return true;
 	}

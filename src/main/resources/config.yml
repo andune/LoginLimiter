@@ -1,6 +1,8 @@
 global:
   # global server login limit. Set less than your server.properties to have room for
-  # reserved logins
+  # reserved logins. You must always have at least 1 spot open in order for people
+  # to be able to queue; if the server is totally full, MineCraft/Bukkit won't let
+  # players connect at all, so this plugin cannot detect them.
   limit: 20
 
   # any groups listed here can login even if server is at the global Limit

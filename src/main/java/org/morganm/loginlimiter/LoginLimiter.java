@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
@@ -56,7 +57,7 @@ public class LoginLimiter extends JavaPlugin {
 		setupPermissions();
 		loginQueue = new LoginQueue(this);
 		
-		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, new MyPlayerListener(this), Priority.Lowest, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, new MyPlayerListener(this), Priority.Lowest, this);
 		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, new MyPlayerListener(this), Priority.Lowest, this);
 		
 		log.info(logPrefix + "version "+version+", build "+buildNumber+" is enabled");
@@ -72,9 +73,42 @@ public class LoginLimiter extends JavaPlugin {
 			String label, String[] args) {
 		if( command.getName().equals("ll") ) {
 			if( has(sender, command.getPermission()) ) {
-				if( args.length > 0 && args[0].equals("reload") ) {
-					loadConfig();
-					sender.sendMessage(ChatColor.YELLOW+"LoginLimiter config file reloaded");
+				if( args.length > 0 ) {
+					if( args[0].equals("reload") ) { 
+						loadConfig();
+						sender.sendMessage(ChatColor.YELLOW+"LoginLimiter config file reloaded");
+					}
+					else if( args[0].equals("clear") ) {
+						loginQueue.clearQueues();
+						sender.sendMessage(ChatColor.YELLOW+"Login queues cleared");
+					}
+					else if( args[0].equals("list") ) {
+						sender.sendMessage(ChatColor.YELLOW+"Players in reconnect queue: ");
+						StringBuffer sb = new StringBuffer();
+						int i = 1;
+						Set<String> players = loginQueue.getReconnectQueuedPlayers();
+						for(String p : players) {
+							if(sb.length() > 0)
+								sb.append(", ");
+							sb.append(i);
+							sb.append(":");
+							sb.append(p);
+						}
+						sender.sendMessage(ChatColor.YELLOW+sb.toString());
+						
+						sender.sendMessage(ChatColor.YELLOW+"Players in reconnect queue: ");
+						sb = new StringBuffer();
+						i = 1;
+						players = loginQueue.getQueuedPlayers();
+						for(String p : players) {
+							if(sb.length() > 0)
+								sb.append(", ");
+							sb.append(i);
+							sb.append(":");
+							sb.append(p);
+						}
+						sender.sendMessage(ChatColor.YELLOW+sb.toString());
+					}
 				}
 				else {
 					sender.sendMessage(command.getUsage());
@@ -110,8 +144,7 @@ public class LoginLimiter extends JavaPlugin {
 	private void setupPermissions() {
 		if( !setupVaultPermissions() )
 			if( !setupWEPIFPermissions() ) {
-//				log.warning(logPrefix+" No Vault or WEPIF perms found, permissions functioning in degraded mode (superperms does NOT support offline permissions).");
-				;
+				log.warning(logPrefix+" No Vault or WEPIF perms found, permissions functioning in degraded mode (superperms does NOT support prelogin or offline permissions).");
 			}
 	}
 	
@@ -147,8 +180,8 @@ public class LoginLimiter extends JavaPlugin {
     	return wepifPerms != null;
     }
     
-    public boolean isNewPlayer(Player p) {
-    	String playerDat = p.getName() + ".dat";
+    public boolean isNewPlayer(String playerName) {
+    	String playerDat = playerName + ".dat";
     	
     	// start with the easy, most likely check
     	File file = new File("world/players/"+playerDat);
@@ -195,6 +228,15 @@ public class LoginLimiter extends JavaPlugin {
     		return wepifPerms.hasPermission(p.getName(), permission);
     	else
     		return p.hasPermission(permission);		// fall back to superperms
+    }
+    
+    public boolean has(String player, String permission) {
+    	if( vaultPermission != null )
+    		return vaultPermission.has("world", player, permission);
+    	else if( wepifPerms != null )
+    		return wepifPerms.hasPermission(player, permission);
+    	else
+    		return false;	// no options with superperms
     }
     
     /*
