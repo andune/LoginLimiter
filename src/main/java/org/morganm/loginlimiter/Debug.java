@@ -90,7 +90,9 @@ public class Debug {
 	
 	/** This method takes varargs String elements and if debugging is true, it will concat
 	 * them together and print out a debug message. This saves on debug overhead processing
-	 * of the form: debug("Some string"+someValue+", some other string "+someOtherValue);
+	 * of the form:
+	 * 
+	 * debug("Some string"+someValue+", some other string "+someOtherValue);
 	 * 
 	 * since in that form, the StringBuffer() addition must be incurred for every debug
 	 * call, even if debugging is off. With this method, the above statement becomes:
@@ -98,11 +100,15 @@ public class Debug {
 	 * debug("Some string", someValue, ", some other string ", someOtherValue);
 	 * 
 	 * and the StringBuffer() penalty is only incurred if debugging is actually enabled.
+	 * This reduces the penalty of debugs (when debugging is off) to simply that of
+	 * a function call and a single if check. Not quite as good as C #ifdef preprocessing
+	 * but it's about as close as we can get under Java.
 	 * 
 	 * If you look at the below method and find yourself thinking "that seems less
 	 * efficient than just letting java do the addition", then you don't know much about
-	 * Java strings. Java converts string addition internally into StringBuffer() addition
-	 * using exactly the same method calls below.
+	 * Java strings. Java converts string addition (within the same literal expression)
+	 * internally into StringBuffer() addition using exactly the same method calls as
+	 * below.
 	 * 
 	 * @param msg
 	 * @param args

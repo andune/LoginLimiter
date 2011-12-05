@@ -58,7 +58,7 @@ public class LoginQueue {
 	
 	public int getQueueSize() {
 		cleanupQueue();
-		return loginQueue.size();
+		return reconnectQueue.size() + loginQueue.size();
 	}
 	
 	public int getReconnectQueueSize() {
@@ -80,7 +80,7 @@ public class LoginQueue {
 	}
 	
 	public boolean isPlayerQueued(Player player) {
-		return loginQueue.get(player.getName()) != null;
+		return isInReconnectQueue(player) || loginQueue.get(player.getName()) != null;
 	}
 	
 	public boolean isInReconnectQueue(Player player) {
@@ -128,6 +128,8 @@ public class LoginQueue {
 		// called in the accessor methods above without concern for performance.
 		if( System.currentTimeMillis() - lastCleanup < 1000 )
 			return;
+		
+		debug.debug("cleanupQueue running");
 		
 		// make sure we're thread safe, in case Bukkit allows multiple Player
 		// login threads to run at once (not sure...)
@@ -184,13 +186,28 @@ public class LoginQueue {
 		if( freeCount < 1 )
 			return false;
 		
+		debug.debug("isEligible called for player ",player,", freeCount=",freeCount);
+		
 		String playerName = player.getName();
 		PlayerInfo pInfo = loginQueue.get(playerName);
 		
-		// if the player is not even in the queue (should never happen), then they're
-		// not allowed to login, they need to wait in the queue.
-		if( pInfo == null )
+		// if they're in the reconnect queue, they are allowed on
+		for(Entry<String,Long> entry : reconnectQueue.entrySet()) {
+			String queuePlayerName = entry.getKey();
+			debug.debug("checking queued player ",queuePlayerName," against current player ",player);
+			if( playerName.equals(queuePlayerName) ) {
+				debug.debug("player ",player," is in reconnectQueue, isElligible returning true");
+				return true;
+			}
+		}
+		
+		// if they're not in the login queue, check to make sure they are in the regular
+		// queue (should always be the case). If they're not in the queue at all, then
+		// they are not eligible to login (they need to wait in the queue).
+		if( pInfo == null ) {
+			debug.debug("isEligible(): SHOULDN'T EVER HAPPEN: player ",playerName," is not in the queue!");
 			return false;
+		}
 		
 		// this method is called on login attempt, so update the lastLoginAttempt for this player
 		pInfo.lastLoginAttempt = System.currentTimeMillis();
@@ -199,20 +216,27 @@ public class LoginQueue {
 
 		int count = 0;
 		for(Entry<String,PlayerInfo> entry : loginQueue.entrySet()) {
-			if( playerName.equals(entry.getKey()) )
+			if( playerName.equals(entry.getKey()) ) {
+				debug.debug("player ",player," found in queue within an available slot, isElligible returning true");
 				return true;
+			}
 			
 			// if this player logging in has a higher rank than the player
 			// we're checking in the queue, then player logging in skips the
 			// lower ranked player in the queue
-			if( pInfo.rank > entry.getValue().rank )
+			if( pInfo.rank > entry.getValue().rank ) {
+				debug.debug("player ",player," has higher rank than queue slot ",count,", ignoring that queue slot");
 				continue;
+			}
 			
 			// if we're over our freeCount limit, then this person is not yet eligible
-			if( ++count >= freeCount )
+			if( ++count >= freeCount ) {
+				debug.debug("player ",player," found in queue beyond available slots, isElligible returning FALSE");
 				return false;
+			}
 		}
 		
+		debug.debug("player ",player," not found in queue, but there are plenty of free slots available, isElligible returning true");
 		// if we get here, we didn't hit the freeCount limit, so we are allowed to login
 		return true;
 	}

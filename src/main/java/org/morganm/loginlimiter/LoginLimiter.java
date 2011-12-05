@@ -6,18 +6,26 @@ package org.morganm.loginlimiter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
 import net.milkbowl.vault.permission.Permission;
 
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Priority;
 import org.bukkit.event.Event.Type;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import com.sk89q.bukkit.migration.PermissionsResolverManager;
+import com.sk89q.bukkit.migration.PermissionsResolverServerListener;
 
 /**
  * @author morganm
@@ -31,28 +39,54 @@ public class LoginLimiter extends JavaPlugin {
 	public static final String CONFIG_GLOBAL = "global.";
 	
     private Permission vaultPermission = null;
+    private PermissionsResolverManager wepifPerms = null;
     private LoginQueue loginQueue;
 	private String version;
+	private int buildNumber = -1;
+	private boolean configLoaded = false;
 
 	@Override
 	public void onEnable() {
 		version = getDescription().getVersion();
+		getBuildNumber();
 		
     	Debug.getInstance().init(log, logPrefix+"[DEBUG] ", false);
 		loadConfig();
 
-		setupVaultPermissions();
+		setupPermissions();
 		loginQueue = new LoginQueue(this);
 		
 		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, new MyPlayerListener(this), Priority.Lowest, this);
 		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, new MyPlayerListener(this), Priority.Lowest, this);
 		
-		log.info(logPrefix + "version "+version+" is enabled");
+		log.info(logPrefix + "version "+version+", build "+buildNumber+" is enabled");
 	}
 
 	@Override
 	public void onDisable() {
-		log.info(logPrefix + "version "+version+" is disabled");
+		log.info(logPrefix + "version "+version+", build "+buildNumber+" is disabled");
+	}
+	
+	@Override
+	public boolean onCommand(CommandSender sender, Command command,
+			String label, String[] args) {
+		if( command.getName().equals("ll") ) {
+			if( has(sender, command.getPermission()) ) {
+				if( args.length > 0 && args[0].equals("reload") ) {
+					loadConfig();
+					sender.sendMessage(ChatColor.YELLOW+"LoginLimiter config file reloaded");
+				}
+				else {
+					sender.sendMessage(command.getUsage());
+				}
+			}
+			else
+				sender.sendMessage(ChatColor.DARK_RED + "No permission");
+			
+			return true;
+		}
+
+		return false;
 	}
 	
 	public void loadConfig() {
@@ -61,25 +95,56 @@ public class LoginLimiter extends JavaPlugin {
 			copyConfigFromJar("config.yml", file);
 		}
 		
-		getConfig();
+		if( !configLoaded ) {
+			getConfig();
+			configLoaded = true;
+		}
+		else
+			reloadConfig();
+		
 		Debug.getInstance().setDebug(getConfig().getBoolean("debug", false));
 	}
 	
 	public LoginQueue getLoginQueue() { return loginQueue; }
 
+	private void setupPermissions() {
+		if( !setupVaultPermissions() )
+			if( !setupWEPIFPermissions() ) {
+//				log.warning(logPrefix+" No Vault or WEPIF perms found, permissions functioning in degraded mode (superperms does NOT support offline permissions).");
+				;
+			}
+	}
+	
     private Boolean setupVaultPermissions()
     {
     	Plugin vault = getServer().getPluginManager().getPlugin("Vault");
     	if( vault != null ) {
 	        RegisteredServiceProvider<Permission> permissionProvider = getServer().getServicesManager().getRegistration(net.milkbowl.vault.permission.Permission.class);
 	        if (permissionProvider != null) {
+	        	Debug.getInstance().debug("Vault permissions found and enabled");
 	            vaultPermission = permissionProvider.getProvider();
 	        }
     	}
-    	// we don't print any errors on "else" because we just fall back to our own perms code
-    	// at this point and no functionality is lost.
+    	else
+        	Debug.getInstance().debug("Vault permissions not found");
     	
         return (vaultPermission != null);
+    }
+    
+    private boolean setupWEPIFPermissions() {
+    	try {
+	    	Plugin worldEdit = getServer().getPluginManager().getPlugin("WorldEdit");
+	    	if( worldEdit != null ) {
+		    	wepifPerms = new PermissionsResolverManager(this, "LoginLimiter", log);
+		    	(new PermissionsResolverServerListener(wepifPerms, this)).register(this);
+		    	Debug.getInstance().debug("WEPIF permissions enabled");
+	    	}
+    	}
+    	catch(Exception e) {
+    		log.info(logPrefix + " Unexpected error trying to setup WEPIF permissions hooks (this message can be ignored): "+e.getMessage());
+    	}
+    	
+    	return wepifPerms != null;
     }
     
     public boolean isNewPlayer(Player p) {
@@ -113,9 +178,21 @@ public class LoginLimiter extends JavaPlugin {
      * @param permission the permission to be checked
      * @return true if the player has the permission, false if not
      */
-    public boolean has(Player p, String permission) {
+    public boolean has(CommandSender sender, String permission) {
+    	Player p = null;
+    	// console always has access
+    	if( sender instanceof ConsoleCommandSender )
+    		return true;
+    	if( sender instanceof Player )
+    		p = (Player) sender;
+    	
+    	if( p == null )
+    		return false;
+    	
     	if( vaultPermission != null )
     		return vaultPermission.has(p, permission);
+    	else if( wepifPerms != null )
+    		return wepifPerms.hasPermission(p.getName(), permission);
     	else
     		return p.hasPermission(permission);		// fall back to superperms
     }
@@ -155,6 +232,25 @@ public class LoginLimiter extends JavaPlugin {
             } catch (Exception e) {
                 log.warning(logPrefix + " Could not copy config file "+fileName+" to default location");
             }
+        }
+    }
+    
+    private void getBuildNumber() {
+        try {
+        	JarFile jar = new JarFile(getFile());
+        	
+            JarEntry entry = jar.getJarEntry("build.number");
+            InputStream is = jar.getInputStream(entry);
+        	Properties props = new Properties();
+        	props.load(is);
+        	is.close();
+        	Object o = props.get("build.number");
+        	if( o instanceof Integer )
+        		buildNumber = ((Integer) o).intValue();
+        	else if( o instanceof String )
+        		buildNumber = Integer.parseInt((String) o);
+        } catch (Exception e) {
+            log.warning(logPrefix + " Could not load build number from JAR");
         }
     }
 }

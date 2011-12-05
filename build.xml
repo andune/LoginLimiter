@@ -29,9 +29,13 @@
 	</target>
 
 	<target name="dist" depends="compile" description="Generates distribution jar file">
+                <buildnumber />
 		<copy todir="${build.home}">
 			<fileset dir="${config.home}">
 				<include name="**/*.yml"/>
+			</fileset>
+			<fileset dir="${basedir}" >
+				<include name="build.number"/>
 			</fileset>
 		</copy>
 

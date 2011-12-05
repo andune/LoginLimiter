@@ -2,3 +2,8 @@ name: LoginLimiter
 main: org.morganm.loginlimiter.LoginLimiter
 version: 0.1
 author: morganm
+commands:
+  ll:
+    description: Admin control functions for LoginLimiter
+    permission: loginlimiter.admin
+    usage: /<command> reload - reload the config file
