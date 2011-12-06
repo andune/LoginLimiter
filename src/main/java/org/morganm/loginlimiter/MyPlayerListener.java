@@ -85,16 +85,18 @@ public class MyPlayerListener extends PlayerListener {
 				if( !queue.isEligible(playerName, freeCount) ) {
 					String msg = null;
 					if( playerAdded ) {
-						msg = plugin.getConfig().getString("messages.queued", "Server full, now queued (${queueNumber}/${queueTotal}). Connect at least every ${reconnectSeconds} seconds to hold spot");
+						msg = plugin.getConfig().getString("messages.queued", "Server full, now queued (${queueNumber}/${queueTotal}). Connect at least every ${queueLoginTime} to hold spot");
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
-						msg = msg.replaceAll("\\$\\{reconnectSeconds\\}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
+						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
+								shortTime(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
 					}
 					else {
-						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect at least every ${reconnectSeconds} seconds to hold spot");
+						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect at least every ${queueLoginTime} to hold spot");
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
-						msg = msg.replaceAll("\\$\\{reconnectSeconds\\}", Integer.toString(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
+						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
+								shortTime(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
 					}
 					
 					event.disallow(Result.KICK_OTHER, msg);
@@ -114,6 +116,19 @@ public class MyPlayerListener extends PlayerListener {
 	@Override
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		plugin.getLoginQueue().addReconnectPlayer(event.getPlayer());
+	}
+	
+	private String shortTime(int seconds) {
+		if( seconds == 1 ) {
+			return "1 second";
+		}
+		else if( seconds < 60 ) {
+			return seconds + " seconds";
+		}
+		else {
+			// we don't display the seconds once we're past 60
+			return (seconds / 60) + " mins";
+		}
 	}
 	
 	/** Check to see if player is allowed to login based on global limit settings. Will
@@ -226,6 +241,32 @@ public class MyPlayerListener extends PlayerListener {
 							if( requiredPermsOnlyForNew && !plugin.isNewPlayer(thisPlayer) )
 								isRequiredPermsOnline = true;
 							
+							// check required perms before we do any limit checks
+							for(int i=0; i < onlinePlayers.length; i++) {
+								// note once this flag goes to true, we don't need to check it anymore.
+								if( !isRequiredPermsOnline && requiredPerms != null ) {
+									for(String reqPerm : requiredPerms) {
+										if( plugin.has(onlinePlayers[i],  reqPerm) ) {
+											debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required permission requirement met by player ",onlinePlayers[i]," (perm=",reqPerm,")");
+											isRequiredPermsOnline = true;
+											break;
+										}
+									}
+								}
+							}
+							
+							
+							// if we get here, that means we've looped through all online players.
+							// if there was a requiredPerms requirement that went unmet, then
+							// isRequiredPermsOnline will still be false. In that case, set the
+							// login flag to false so this player will be rejected by virtue
+							// of not having anyone online that meets the required perms definition.
+							if( !isRequiredPermsOnline ) {
+								debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required online permission not met for this section");
+								requiredPermsLoginFlag = false;
+								break;
+							}
+							
 							// check the ifOver limit against current player size to see
 							// if we should proceed
 							if( ifOver != -1 && onlinePlayers.length < ifOver ) {
@@ -254,8 +295,7 @@ public class MyPlayerListener extends PlayerListener {
 							
 //							String group = config.getString("limits."+node+".group");
 							
-							// the total count of people online for this permission grouping
-							int groupCount = 0;
+							int groupCount = 0;		// the total count of people online for this permission grouping
 							
 							for(int i=0; i < onlinePlayers.length; i++) {
 								if( limitAllowed ) {
@@ -271,33 +311,11 @@ public class MyPlayerListener extends PlayerListener {
 										}
 									}
 								}
-
-								// do the requiredPerms check while we're iterating players, too.
-								// note once this flag goes to true, we don't need to check it anymore.
-								if( !isRequiredPermsOnline && requiredPerms != null ) {
-									for(String reqPerm : requiredPerms) {
-										if( plugin.has(onlinePlayers[i],  reqPerm) ) {
-											debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required permission requirement met by player ",onlinePlayers[i]," (perm=",reqPerm,")");
-											isRequiredPermsOnline = true;
-											break;
-										}
-									}
-								}
 							}
 							
 							// record the smallest limit remaining that we encounter for this player
 							if( smallestLimit == -1 || (limit - groupCount) < smallestLimit )
 								smallestLimit = limit - groupCount;
-							
-							// if we get here, that means we've looped through all online players.
-							// if there was a requiredPerms requirement that went unmet, then
-							// isRequiredPermsOnline will still be false. In that case, set the
-							// login flag to false so this player will be rejected by virtue
-							// of not having anyone online that meets the required perms definition.
-							if( !isRequiredPermsOnline ) {
-								debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required permission requirement not met for this section");
-								requiredPermsLoginFlag = false;
-							}
 						} // end if( plugin.has(p, perm) )
 						else
 							debug.debug("checkGroupLimits(): node ",node,", player ",thisPlayer," DOES NOT HAVE permission ",perm);

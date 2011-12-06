@@ -1,5 +1,7 @@
 v0.2 - December 5, 2011
 * added verbose option and some logging
+* fixed bug with requiredOnlinePerms when section was < ifOver limit
+* other minor code cleanup
 
 v0.1 - December 4, 2011
 * initial public release

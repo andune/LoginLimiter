@@ -61,7 +61,8 @@ public class LoginQueue {
 	
 	public int getQueueSize() {
 		cleanupQueue();
-		return reconnectQueue.size() + loginQueue.size();
+		return loginQueue.size();
+//		return reconnectQueue.size() + loginQueue.size();
 	}
 	
 	public int getReconnectQueueSize() {
@@ -100,17 +101,15 @@ public class LoginQueue {
 	public void playerLoggedIn(String playerName) {
 		debug.debug("playerLoggedIn(): removing player ",playerName," from queues");
 		
-		boolean wasRemoved = false;
-		
 		synchronized(LoginQueue.class) {
-			if( reconnectQueue.remove(playerName) != null )
-				wasRemoved = true;
-			if(	loginQueue.remove(playerName) != null )
-				wasRemoved = true;
-		}
-		
-		if( wasRemoved && plugin.getConfig().getBoolean("verbose", true) ) {
-			log.info(logPrefix+"Player "+playerName+" logged in and removed from queue");
+			if( reconnectQueue.remove(playerName) != null ) {
+				if( plugin.getConfig().getBoolean("verbose", true) )
+					log.info(logPrefix+"Player "+playerName+" logged in and removed from reconnect queue");
+			}
+			if(	loginQueue.remove(playerName) != null ) {
+				if( plugin.getConfig().getBoolean("verbose", true) )
+					log.info(logPrefix+"Player "+playerName+" logged in and removed from reconnect queue");
+			}
 		}
 	}
 	

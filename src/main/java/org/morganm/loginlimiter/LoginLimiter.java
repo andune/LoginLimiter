@@ -93,10 +93,13 @@ public class LoginLimiter extends JavaPlugin {
 							sb.append(i);
 							sb.append(":");
 							sb.append(p);
+							i++;
 						}
+						if( sb.length() == 0 )
+							sb.append("(none)");
 						sender.sendMessage(ChatColor.YELLOW+sb.toString());
 						
-						sender.sendMessage(ChatColor.YELLOW+"Players in reconnect queue: ");
+						sender.sendMessage(ChatColor.YELLOW+"Players in login queue: ");
 						sb = new StringBuffer();
 						i = 1;
 						players = loginQueue.getQueuedPlayers();
@@ -106,7 +109,10 @@ public class LoginLimiter extends JavaPlugin {
 							sb.append(i);
 							sb.append(":");
 							sb.append(p);
+							i++;
 						}
+						if( sb.length() == 0 )
+							sb.append("(none)");
 						sender.sendMessage(ChatColor.YELLOW+sb.toString());
 					}
 				}
@@ -181,12 +187,14 @@ public class LoginLimiter extends JavaPlugin {
     }
     
     public boolean isNewPlayer(String playerName) {
+    	boolean newPlayerFlag = true;
+    	
     	String playerDat = playerName + ".dat";
     	
     	// start with the easy, most likely check
     	File file = new File("world/players/"+playerDat);
     	if( file.exists() )
-    		return false;
+    		newPlayerFlag = false;
     	
     	/* It seems all player files go to the defaultWorld, so this part is unnecessary.
     	 * Not sure if it's possible to change the default world, should probably look
@@ -201,8 +209,10 @@ public class LoginLimiter extends JavaPlugin {
     	}
     	*/
     	
+    	Debug.getInstance().debug("isNewPlayer() playerName=",playerName,", result=",newPlayerFlag);
+    	
     	// if we didn't find any record of this player on any world, they must be new
-    	return true;
+    	return newPlayerFlag;
     }
     
     /** Check to see if player has a given permission.
