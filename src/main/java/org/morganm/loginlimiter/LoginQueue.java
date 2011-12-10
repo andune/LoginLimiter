@@ -59,6 +59,17 @@ public class LoginQueue {
 		reconnectQueue.put(player.getName(), System.currentTimeMillis());
 	}
 	
+	/** Called when a player in the queue attempts to login, in order to update
+	 * their last login attempt time.
+	 * 
+	 * @param playerName
+	 */
+	public void loginAttempt(String playerName) {
+		PlayerInfo pInfo = loginQueue.get(playerName);
+		if( pInfo != null )
+			pInfo.lastLoginAttempt = System.currentTimeMillis();
+	}
+	
 	public int getQueueSize() {
 		cleanupQueue();
 		return loginQueue.size();
@@ -111,6 +122,43 @@ public class LoginQueue {
 					log.info(logPrefix+"Player "+playerName+" logged in and removed from reconnect queue");
 			}
 		}
+	}
+	
+	/** Return the configuration value for "queueLoginTime" for the given player: this represents how often
+	 * a player must reconnect in order to stay in the queue. In the config file, this value can be changed
+	 * per-permission group, so this method finds the right value for the given player.
+	 * 
+	 * @param playerName
+	 * @return
+	 */
+	public int getQueueLoginTime(String playerName) {
+		if( playerName == null )
+			return 0;
+		
+		int loginTime = 0;
+		
+		ConfigurationSection section = plugin.getConfig().getConfigurationSection(CONFIG_GLOBAL+"queueLoginTimeByPerm");
+		Set<String> keys = null;
+		
+		if( section != null )
+			keys = section.getKeys(false);
+			
+		if( keys != null ) {
+			for(String perm : keys) {
+				if( plugin.has(playerName, perm) ) {
+					int time = plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTimeByPerm."+perm);
+					if( time > loginTime)
+						loginTime = time;
+				}
+			}
+		}
+		
+		if( loginTime == 0 )
+			loginTime = plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0);
+		
+		debug.debug("getLoginQueueTime() playerName=",playerName,", loginTime=",loginTime);
+		
+		return loginTime;
 	}
 	
 	private int getPlayerRank(String player) {
@@ -175,7 +223,7 @@ public class LoginQueue {
 		synchronized(LoginQueue.class) {
 			FileConfiguration config = plugin.getConfig();
 			int maxTime = config.getInt(CONFIG_GLOBAL+"queueMaxTime", 0) * 1000;
-			int loginTime = config.getInt(CONFIG_GLOBAL+"queueLoginTime", 0) * 1000;
+//			int loginTime = config.getInt(CONFIG_GLOBAL+"queueLoginTime", 0) * 1000;
 			int reconnectTime = config.getInt(CONFIG_GLOBAL+"reconnectTime", 0) * 1000;
 			
 			Set<Entry<String,Long>> reconnectEntrySet = reconnectQueue.entrySet();
@@ -193,6 +241,8 @@ public class LoginQueue {
 				
 				String playerName = e.getKey();
 				PlayerInfo pInfo = e.getValue();
+				
+				int loginTime = getQueueLoginTime(playerName);
 	
 				// if p is not null, then the player is already online and should no
 				// longer be in the queue

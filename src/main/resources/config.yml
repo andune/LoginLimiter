@@ -34,14 +34,21 @@ global:
 #    "400": group.Moderator
 #    "1000": group.Admin
 
+  # if defined, the highest value is used for the matching permission. If
+  # no matching permission is found, the default value set in
+  # "queueLoginTime" above is used
+#  queueLoginTimeByPerm:
+#    group.Guest: 60
+#    group.Member: 120
+
 # define any per-group limits
 groupLimits:
   # this name is irrelevant, just has to be unique. "entry1", "entry2", "foo3".. whatever
   entry1:
     # permissions listed here apply to this entry
     permissions:
-      - group.Guest
-      - group.Newbie
+      - group.GuestLimit
+      - group.NewbieLimit
 
     # the limit for the groups in this entry
     limit: 5

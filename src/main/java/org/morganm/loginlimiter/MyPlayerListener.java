@@ -14,6 +14,8 @@ import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.morganm.loginlimiter.bans.BanFactory;
+import org.morganm.loginlimiter.bans.BanInterface;
 
 /**
  * @author morganm
@@ -27,11 +29,13 @@ public class MyPlayerListener extends PlayerListener {
 	
 	private final LoginLimiter plugin;
 	private final Debug debug;
+	private final BanInterface ban;
 	private boolean warningNoGroupLimitsDisplayed = false;
 	
 	public MyPlayerListener(LoginLimiter plugin) {
 		this.plugin = plugin;
 		this.debug = Debug.getInstance();
+		ban = BanFactory.getBanObject();
 	}
 	
 	@Override
@@ -42,6 +46,13 @@ public class MyPlayerListener extends PlayerListener {
 		
 		String playerName = event.getName();
 		debug.debug("onPlayerLogin(): playerName=",playerName);
+		
+		String playerIP = event.getAddress().getHostAddress();
+		if( ban != null && ban.isBanned(playerName, playerIP) ) {
+			debug.debug("Player",playerName," is banned, refusing login");
+			event.disallow(Result.KICK_BANNED, "You have been banned");
+			return;
+		}
 		
 		int freeCount = 0;
 		
@@ -89,14 +100,15 @@ public class MyPlayerListener extends PlayerListener {
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
 						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
-								shortTime(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
+								shortTime(queue.getQueueLoginTime(playerName)));
 					}
 					else {
 						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect at least every ${queueLoginTime} to hold spot");
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
 						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
-								shortTime(plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTime", 0)));
+								shortTime(queue.getQueueLoginTime(playerName)));
+						queue.loginAttempt(playerName);
 					}
 					
 					event.disallow(Result.KICK_OTHER, msg);
