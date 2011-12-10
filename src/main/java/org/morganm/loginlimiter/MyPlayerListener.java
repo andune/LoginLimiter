@@ -69,7 +69,11 @@ public class MyPlayerListener extends PlayerListener {
 		}
 		debug.debug("freeCount=",freeCount);
 		
-		// need to re-arrange so player gets added to queue when server is full
+		// player is exempt from queue limits?
+		if( freeCount == -2 ) {
+			debug.debug("Player ",playerName," is exempt from queue limits, login allowed");
+			return;
+		}
 		
 		// if we get this far and the login has not been refused, then there is
 		// possibly a free slot to be had for this player. Now we need to check
@@ -147,7 +151,7 @@ public class MyPlayerListener extends PlayerListener {
 	 * modify the event to disallow the login if they are not.
 	 * 
 	 * @param event
-	 * @return the number of available slots on the server
+	 * @return the number of available slots on the server, or -2 if player is exempt from queue limits
 	 */
 	@SuppressWarnings("unchecked")
 	private int checkGlobalLimits(PlayerPreLoginEvent event) {
@@ -169,14 +173,14 @@ public class MyPlayerListener extends PlayerListener {
 		
 		debug.debug("checkGlobalLimits() globalLimit=",globalLimit," onlinePlayers.length=",onlinePlayers.length);
 		
+		boolean exempt = false;
 		if( globalLimit > 0 && onlinePlayers.length >= globalLimit ) {
-			boolean exempt = false;
-
 			// check to see if they are part of the exempt perm list
 			List<String> globalExemptPerms = config.getStringList(CONFIG_GLOBAL+"limitExemptPerms");
 			if( globalExemptPerms != null ) {
 				for(String perm : globalExemptPerms) {
 					if( plugin.has(playerName, perm) ) {
+						debug.debug("checkGlobalLimits() player ",playerName," is exempt due to permission ",perm);
 						exempt = true;
 						break;
 					}
@@ -190,7 +194,10 @@ public class MyPlayerListener extends PlayerListener {
 			}
 		}
 		
-		return globalLimit - onlinePlayers.length;
+		if( exempt )
+			return -2;
+		else
+			return globalLimit - onlinePlayers.length;
 	}
 	
 	/** Check to see if a player is allowed to login based on group limits.  Will
@@ -259,9 +266,14 @@ public class MyPlayerListener extends PlayerListener {
 								if( !isRequiredPermsOnline && requiredPerms != null ) {
 									for(String reqPerm : requiredPerms) {
 										if( plugin.has(onlinePlayers[i],  reqPerm) ) {
-											debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required permission requirement met by player ",onlinePlayers[i]," (perm=",reqPerm,")");
-											isRequiredPermsOnline = true;
-											break;
+											if( plugin.getOnDuty().isOffDuty(onlinePlayers[i].getName()) ) {
+												debug.debug("checkGroupLimits(): node ",node,", permission ",perm," player ",onlinePlayers[i]," meets required perm, but is OFF duty (perm=",reqPerm,")");
+											}
+											else {
+												debug.debug("checkGroupLimits(): node ",node,", permission ",perm," required permission requirement met by player ",onlinePlayers[i]," (perm=",reqPerm,")");
+												isRequiredPermsOnline = true;
+												break;
+											}
 										}
 									}
 								}

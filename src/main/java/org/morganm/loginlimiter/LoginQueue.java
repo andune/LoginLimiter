@@ -242,7 +242,7 @@ public class LoginQueue {
 				String playerName = e.getKey();
 				PlayerInfo pInfo = e.getValue();
 				
-				int loginTime = getQueueLoginTime(playerName);
+				int loginTime = getQueueLoginTime(playerName) * 1000;
 	
 				// if p is not null, then the player is already online and should no
 				// longer be in the queue

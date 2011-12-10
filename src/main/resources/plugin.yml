@@ -7,3 +7,9 @@ commands:
     description: Admin control functions for LoginLimiter
     permission: loginlimiter.admin
     usage: /<command> reload - reload the config file
+  offduty:
+    description: Go off duty, no longer counted for required login perm
+    permission: loginlimiter.duty
+  onduty:
+    description: Go on duty
+    permission: loginlimiter.duty

@@ -42,6 +42,7 @@ public class LoginLimiter extends JavaPlugin {
     private Permission vaultPermission = null;
     private PermissionsResolverManager wepifPerms = null;
     private LoginQueue loginQueue;
+    private OnDuty onDuty;
 	private String version;
 	private int buildNumber = -1;
 	private boolean configLoaded = false;
@@ -53,6 +54,7 @@ public class LoginLimiter extends JavaPlugin {
 		
     	Debug.getInstance().init(log, logPrefix+"[DEBUG] ", false);
 		loadConfig();
+		onDuty = new OnDuty(this);
 
 		setupPermissions();
 		loginQueue = new LoginQueue(this);
@@ -71,7 +73,9 @@ public class LoginLimiter extends JavaPlugin {
 	@Override
 	public boolean onCommand(CommandSender sender, Command command,
 			String label, String[] args) {
-		if( command.getName().equals("ll") ) {
+		String cmdName = command.getName();
+		
+		if( "ll".equals(cmdName) ) {
 			if( has(sender, command.getPermission()) ) {
 				if( args.length > 0 ) {
 					if( args[0].equals("reload") ) { 
@@ -125,6 +129,9 @@ public class LoginLimiter extends JavaPlugin {
 			
 			return true;
 		}
+		else if( "onduty".equals(cmdName) || "offduty".equals(cmdName) ) {
+			return onDuty.onCommand(sender, command, label, args);
+		}
 
 		return false;
 	}
@@ -146,6 +153,7 @@ public class LoginLimiter extends JavaPlugin {
 	}
 	
 	public LoginQueue getLoginQueue() { return loginQueue; }
+	public OnDuty getOnDuty() { return onDuty; }
 
 	private void setupPermissions() {
 		if( !setupVaultPermissions() )
