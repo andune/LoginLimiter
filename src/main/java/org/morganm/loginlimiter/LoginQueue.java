@@ -6,6 +6,7 @@ package org.morganm.loginlimiter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -18,10 +19,9 @@ import org.bukkit.entity.Player;
  * @author morganm
  *
  */
-public class LoginQueue {
+public class LoginQueue implements ConfigConstants {
 	private static final Logger log = LoginLimiter.log;
 	private static final String logPrefix = LoginLimiter.logPrefix;
-	private static final String CONFIG_GLOBAL = LoginLimiter.CONFIG_GLOBAL;
 	
 	private final LinkedHashMap<String, PlayerInfo> loginQueue = new LinkedHashMap<String, PlayerInfo>();
 	private final HashMap<String, Long> reconnectQueue = new HashMap<String, Long>();
@@ -131,24 +131,40 @@ public class LoginQueue {
 	 * @param playerName
 	 * @return
 	 */
+	@SuppressWarnings("unchecked")
 	public int getQueueLoginTime(String playerName) {
 		if( playerName == null )
 			return 0;
 		
+		FileConfiguration config = plugin.getConfig();
 		int loginTime = 0;
 		
-		ConfigurationSection section = plugin.getConfig().getConfigurationSection(CONFIG_GLOBAL+"queueLoginTimeByPerm");
+		ConfigurationSection section = config.getConfigurationSection(CONFIG_QUEUE_LOGIN_TIME_BY_PERM);
 		Set<String> keys = null;
 		
 		if( section != null )
 			keys = section.getKeys(false);
 			
 		if( keys != null ) {
-			for(String perm : keys) {
-				if( plugin.has(playerName, perm) ) {
-					int time = plugin.getConfig().getInt(CONFIG_GLOBAL+"queueLoginTimeByPerm."+perm);
-					if( time > loginTime)
-						loginTime = time;
+			for(String entry : keys) {
+				int entryTime = config.getInt(CONFIG_QUEUE_LOGIN_TIME_BY_PERM+"."+entry+".time", 0);
+				if( entryTime < 1 )
+					continue;
+				
+				List<String> perms = null;
+				// If the below seems odd, it is.  It's done this way to protect from a Bukkit NPE
+				// exception if the StringList doesn't exist.
+				Object o = config.get(CONFIG_QUEUE_LOGIN_TIME_BY_PERM+"."+entry+".permissions");
+				if( o != null )
+					perms = config.getStringList(CONFIG_QUEUE_LOGIN_TIME_BY_PERM+"."+entry+".permissions");
+					
+				if( perms != null ) {
+					for(String perm : perms) {
+						if( plugin.has(playerName, perm) ) {
+							if( entryTime > loginTime)
+								loginTime = entryTime;
+						}
+					}
 				}
 			}
 		}

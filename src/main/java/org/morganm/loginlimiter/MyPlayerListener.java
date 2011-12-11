@@ -14,18 +14,15 @@ import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.morganm.loginlimiter.bans.BanFactory;
 import org.morganm.loginlimiter.bans.BanInterface;
 
 /**
  * @author morganm
  *
  */
-public class MyPlayerListener extends PlayerListener {
+public class MyPlayerListener extends PlayerListener implements ConfigConstants {
 	private static final Logger log = LoginLimiter.log;
 	private static final String logPrefix = LoginLimiter.logPrefix;
-	private static final String CONFIG_GROUP_LIMIT = LoginLimiter.CONFIG_GROUP_LIMIT;
-	private static final String CONFIG_GLOBAL = LoginLimiter.CONFIG_GLOBAL;
 	
 	private final LoginLimiter plugin;
 	private final Debug debug;
@@ -35,7 +32,7 @@ public class MyPlayerListener extends PlayerListener {
 	public MyPlayerListener(LoginLimiter plugin) {
 		this.plugin = plugin;
 		this.debug = Debug.getInstance();
-		ban = BanFactory.getBanObject();
+		this.ban = plugin.getBanObject();
 	}
 	
 	@Override

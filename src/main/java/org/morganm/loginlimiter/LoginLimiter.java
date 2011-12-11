@@ -24,6 +24,8 @@ import org.bukkit.event.Event.Type;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.morganm.loginlimiter.bans.BanFactory;
+import org.morganm.loginlimiter.bans.BanInterface;
 
 import com.sk89q.bukkit.migration.PermissionsResolverManager;
 import com.sk89q.bukkit.migration.PermissionsResolverServerListener;
@@ -36,12 +38,10 @@ public class LoginLimiter extends JavaPlugin {
 	public static final Logger log = Logger.getLogger(LoginLimiter.class.toString());
 	public static final String logPrefix = "[LoginLimiter] ";
 	
-	public static final String CONFIG_GROUP_LIMIT = "groupLimits.";
-	public static final String CONFIG_GLOBAL = "global.";
-	
     private Permission vaultPermission = null;
     private PermissionsResolverManager wepifPerms = null;
     private LoginQueue loginQueue;
+    private BanInterface banObject;
     private OnDuty onDuty;
 	private String version;
 	private int buildNumber = -1;
@@ -54,13 +54,18 @@ public class LoginLimiter extends JavaPlugin {
 		
     	Debug.getInstance().init(log, logPrefix+"[DEBUG] ", false);
 		loadConfig();
-		onDuty = new OnDuty(this);
-
 		setupPermissions();
+		
+		banObject = BanFactory.getBanObject();
+		onDuty = new OnDuty(this);
 		loginQueue = new LoginQueue(this);
+		
 		
 		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, new MyPlayerListener(this), Priority.Lowest, this);
 		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, new MyPlayerListener(this), Priority.Lowest, this);
+		
+		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, new BanListener(this), Priority.Monitor, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, new BanListener(this), Priority.Monitor, this);
 		
 		log.info(logPrefix + "version "+version+", build "+buildNumber+" is enabled");
 	}
@@ -154,6 +159,7 @@ public class LoginLimiter extends JavaPlugin {
 	
 	public LoginQueue getLoginQueue() { return loginQueue; }
 	public OnDuty getOnDuty() { return onDuty; }
+	public BanInterface getBanObject() { return banObject; }
 
 	private void setupPermissions() {
 		if( !setupVaultPermissions() )

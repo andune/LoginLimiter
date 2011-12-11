@@ -38,8 +38,14 @@ global:
   # no matching permission is found, the default value set in
   # "queueLoginTime" above is used
 #  queueLoginTimeByPerm:
-#    group.Guest: 60
-#    group.Member: 120
+#    entry1:
+#      permissions:
+#        - group.Guest
+#      time: 60
+#    entry2:
+#      permissions:
+#        - group.Member
+#      time: 120
 
 # define any per-group limits
 groupLimits:

@@ -27,6 +27,10 @@ public class Debug {
 		setDebug(isDebug);
 	}
 	
+	private void enableFileLogger() {
+		log.getName();
+	}
+	
 	private void setConsoleLevel(Level level) {
 		if( level == null )
 			return;

@@ -1,6 +1,6 @@
 name: LoginLimiter
 main: org.morganm.loginlimiter.LoginLimiter
-version: 0.3
+version: 0.4
 author: morganm
 commands:
   ll:

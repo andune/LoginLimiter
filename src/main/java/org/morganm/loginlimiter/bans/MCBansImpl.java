@@ -21,6 +21,10 @@ public class MCBansImpl implements BanInterface {
 		this.mcbans = mcbans;
 	}
 
+	public void updateCache(String playerName, boolean isBanned) {
+		banCache.put(playerName, Boolean.valueOf(isBanned));
+	}
+	
 	/* (non-Javadoc)
 	 * @see org.morganm.loginlimiter.bans.BanInterface#isBanned(java.lang.String)
 	 */
@@ -41,6 +45,8 @@ public class MCBansImpl implements BanInterface {
 			banned = Boolean.TRUE;
 			banCache.put(playerName, banned);
 		}
+		else
+			banCache.put(playerName, Boolean.FALSE);
 		
 		return banned.booleanValue();
 	}
