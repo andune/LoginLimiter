@@ -13,3 +13,6 @@ commands:
   onduty:
     description: Go on duty
     permission: loginlimiter.duty
+  dutylist:
+    description: List everyone who is OFF duty
+    permission: loginlimiter.duty

@@ -129,7 +129,7 @@ public class LoginLimiter extends JavaPlugin {
 			
 			return true;
 		}
-		else if( "onduty".equals(cmdName) || "offduty".equals(cmdName) ) {
+		else if( "onduty".equals(cmdName) || "offduty".equals(cmdName) || "dutylist".equals(cmdName) ) {
 			return onDuty.onCommand(sender, command, label, args);
 		}
 

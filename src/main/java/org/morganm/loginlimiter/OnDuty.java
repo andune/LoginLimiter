@@ -31,6 +31,15 @@ public class OnDuty {
 			offDutyList.add(sender.getName());
 			sender.sendMessage(ChatColor.YELLOW+"You are now OFF duty.");
 		}
+		else if( "dutylist".equals(command.getName()) ) {
+			StringBuffer sb = new StringBuffer();
+			for(String s :offDutyList) {
+				if( sb.length() > 0 )
+					sb.append(", ");
+				sb.append(s);
+			}
+			sender.sendMessage(ChatColor.YELLOW+"People current OFF duty: "+sb.toString());
+		}
 		
 		return true;
 	}

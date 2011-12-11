@@ -1,7 +1,9 @@
-v0.3 - December 9, 2011
+v0.3 - December 10, 2011
 * fixed bug with queueLoginTime not being reset when the player attempted a login
 * direct integration with mcbans, avoid a banned player waiting in the queue. will result in mcbans spam when player first tries to join, but caches ban status after that to avoid future spam
 * implemented perm-based queueLoginTime
+* implemented /offduty, /onduty, to allow online mods to go OffDuty. for the requiredPermsOnline, any flagged as offduty is not counted.
+* fixed a bug related to limitExemptPerms not working properly
 
 v0.2 - December 5, 2011
 * added verbose option and some logging
