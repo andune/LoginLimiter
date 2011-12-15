@@ -75,6 +75,13 @@ groupLimits:
     # requiredOnlinePerms check.
     requiredPermsOnlyForNew: true
 
+    # this can be set to a number that represents the ratio between this group
+    # and the 'requiredOnlinePerms'. For example, 1.5 here means that if 1 Mod
+    # is online, only 1 guest would be allowed online. If 2 mods were online,
+    # then up to 3 guests would be allowed. At no point will the number allowed
+    # online for this group supersede the defined "limit" above.
+    requiredPermRatio: 1.5
+
 messages:
   limitReached: "The number of reserved slots for your rank has been reached. Try again later"
   noPermsOnlineString: "The required rank is not online at this time"

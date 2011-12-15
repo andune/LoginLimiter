@@ -3,14 +3,17 @@
  */
 package org.morganm.loginlimiter;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerListener;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent.Result;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -28,6 +31,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 	private final Debug debug;
 	private final BanInterface ban;
 	private boolean warningNoGroupLimitsDisplayed = false;
+	private HashSet<String> noRequiredPermsRejects = new HashSet<String>(10);
 	
 	public MyPlayerListener(LoginLimiter plugin) {
 		this.plugin = plugin;
@@ -69,6 +73,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		// player is exempt from queue limits?
 		if( freeCount == -2 ) {
 			debug.debug("Player ",playerName," is exempt from queue limits, login allowed");
+			event.setResult(Result.ALLOWED);
 			return;
 		}
 		
@@ -287,20 +292,33 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 								requiredPermsLoginFlag = false;
 								break;
 							}
-							
-							// check the ifOver limit against current player size to see
-							// if we should proceed
-							if( ifOver != -1 && onlinePlayers.length < ifOver ) {
-								debug.debug("checkGroupLimits(): node ",node,", permission ",perm," ifOver threshold not met, skipping group limit check");
-								break;
+
+							// calculate the requiredPermRatio limit, if any
+							int requiredPermRatioLimit = -1;
+							double requiredPermRatio = config.getDouble(CONFIG_GROUP_LIMIT+node+".requiredPermRatio", -1);
+							if( requiredPermRatio != -1 ) {
+								List<Player> onDutyPlayers = plugin.getOnDuty().getOnDutyPlayers();
+								requiredPermRatioLimit = (int) Math.floor(onDutyPlayers.size() * requiredPermRatio);
+								debug.debug("checkGroupLimits(): node ",node,", permission ",perm," onDutyPlayers=",onDutyPlayers.size(),", requiredPermRatio=",requiredPermRatio,", requiredPermRatioLimit=",requiredPermRatioLimit);
 							}
-							
-							// better just to not define the limit at all, but this allows
-							// for explicit "infinite" limit
-							if( limit == -1 ) {
-								limitAllowed = true;
-								debug.debug("checkGroupLimits(): node ",node,", permission ",perm," limit is -1, returning unlimited");
-								return -1;
+
+							// we do some short-circuit checks, but only if there is no requiredPermRatio limit
+							if( requiredPermRatioLimit == -1 ) {
+								// check the ifOver limit against current player size to see
+								// if we should proceed. Note if there is a requiredPermRatio,
+								// we proceed anyway.
+								if( ifOver != -1 && onlinePlayers.length < ifOver ) {
+									debug.debug("checkGroupLimits(): node ",node,", permission ",perm," ifOver threshold not met, skipping group limit check");
+									break;
+								}
+								
+								// better just to not define the limit at all, but this allows
+								// for explicit "infinite" limit
+								if( limit == -1 ) {
+									limitAllowed = true;
+									debug.debug("checkGroupLimits(): node ",node,", permission ",perm," limit is -1, returning unlimited");
+									return -1;
+								}
 							}
 							
 							// if we already know from a previous iteration through the loop
@@ -324,8 +342,20 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 									// to find out how many are online
 									for(String thePerm : perms) {
 										if( plugin.has(onlinePlayers[i], thePerm) ) {
-											if( ++groupCount >= limit ) {
-												debug.debug("checkGroupLimits(): node ",node,", permission ",perm," limit exceeded (",groupCount," >= ",limit,") player ",thisPlayer," is over the limit");
+											groupCount++;
+
+											// we only process limit checks if we are over the ifOver limit
+											if( ifOver == -1 || onlinePlayers.length > ifOver ) {
+												if( limit != -1 && groupCount >= limit ) {
+													debug.debug("checkGroupLimits(): node ",node,", permission ",perm," limit exceeded (",groupCount," >= ",limit,") player ",thisPlayer," is over the limit");
+													limitAllowed = false;
+													break;
+												}
+											}
+											
+											// requiredPermRatio checks apply regardless of ifOver limit
+											if( requiredPermRatioLimit != -1 && groupCount >= requiredPermRatioLimit ) {
+												debug.debug("checkGroupLimits(): node ",node,", permission ",perm," requiredPermRatioLimit exceeded (",groupCount," >= ",requiredPermRatioLimit,") player ",thisPlayer," is over the limit");
 												limitAllowed = false;
 												break;
 											}
@@ -353,6 +383,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		if( !requiredPermsLoginFlag ) {
 			String msg = plugin.getConfig().getString("messages.noPermsOnlineString", "The required rank is not online at this time");
 			event.disallow(Result.KICK_OTHER, msg);
+			noRequiredPermsRejects.add(thisPlayer);
 			if( plugin.getConfig().getBoolean("verbose", true) ) {
 				String preMsg = "Player ";
 				if( plugin.isNewPlayer(thisPlayer) )
@@ -363,4 +394,27 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		
 		return smallestLimit;
 	}
+	
+	/** Not used for the queue itself, we use prelogin for that. This is used for doing some maintenance
+	 * AFTER we know someone has successfully logged in (this is done at priority MONITOR).
+	 * 
+	 */
+	@Override
+	public void onPlayerLogin(PlayerLoginEvent event) {
+		// do nothing if the login has been rejected
+		if( event.getResult() != org.bukkit.event.player.PlayerLoginEvent.Result.ALLOWED )
+			return;
+
+		Player p = event.getPlayer();
+		if( plugin.isDutyEligible(p) ) {
+			p.sendMessage(ChatColor.YELLOW+"You are currently "
+					+ (plugin.getOnDuty().isOffDuty(p.getName()) ? "OFF" : "ON")
+					+ " duty.");
+		}
+		
+		// this person doesn't count as a requiredPerms reject anymore since they made it online
+		noRequiredPermsRejects.remove(p.getName());
+	}
+	
+	public Set<String> getNoRequiredPermsRejects() { return noRequiredPermsRejects; }
 }

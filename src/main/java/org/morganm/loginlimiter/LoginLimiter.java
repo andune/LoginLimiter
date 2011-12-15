@@ -6,6 +6,8 @@ package org.morganm.loginlimiter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -46,6 +48,8 @@ public class LoginLimiter extends JavaPlugin {
 	private String version;
 	private int buildNumber = -1;
 	private boolean configLoaded = false;
+	private MyPlayerListener playerListener;
+	private BanListener banListener;
 
 	@Override
 	public void onEnable() {
@@ -60,12 +64,18 @@ public class LoginLimiter extends JavaPlugin {
 		onDuty = new OnDuty(this);
 		loginQueue = new LoginQueue(this);
 		
+		playerListener = new MyPlayerListener(this);
+		banListener = new BanListener(this);
 		
-		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, new MyPlayerListener(this), Priority.Lowest, this);
-		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, new MyPlayerListener(this), Priority.Lowest, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, playerListener, Priority.Lowest, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, playerListener, Priority.Lowest, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, playerListener, Priority.Monitor, this);
 		
-		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, new BanListener(this), Priority.Monitor, this);
-		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, new BanListener(this), Priority.Monitor, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, banListener, Priority.Monitor, this);
+		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, banListener, Priority.Monitor, this);
+		
+		// run every 30 minutes
+		getServer().getScheduler().scheduleAsyncRepeatingTask(this, new ScheduleRunner(this, playerListener), 36000, 36000);
 		
 		log.info(logPrefix + "version "+version+", build "+buildNumber+" is enabled");
 	}
@@ -73,6 +83,36 @@ public class LoginLimiter extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		log.info(logPrefix + "version "+version+", build "+buildNumber+" is disabled");
+	}
+	
+	/** We run this on a fixed schedule to do scheduled things.
+	 * 
+	 * @author morganm
+	 *
+	 */
+	private class ScheduleRunner implements Runnable {
+		private LoginLimiter plugin;
+		private MyPlayerListener listener;
+		public ScheduleRunner(LoginLimiter plugin, MyPlayerListener listener) {
+			this.plugin = plugin;
+			this.listener = listener;
+		}
+		public void run() {
+			// send a tickler to every OFF duty eligible player to let them know how many people
+			// we've rejected today as a result of being OFF duty
+			List<Player> dutyEligible = plugin.getDutyEligiblePlayers();
+			if( dutyEligible.size() > 0 ) {
+				Set<String> rejects = listener.getNoRequiredPermsRejects();
+				int numRejects = rejects.size();
+				for(Player p : dutyEligible) {
+					if( onDuty.isOffDuty(p.getName()) ) {
+						p.sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
+					}
+				}
+				// also echo to console
+				getServer().getConsoleSender().sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
+			}
+		}
 	}
 	
 	@Override
@@ -160,6 +200,19 @@ public class LoginLimiter extends JavaPlugin {
 	public LoginQueue getLoginQueue() { return loginQueue; }
 	public OnDuty getOnDuty() { return onDuty; }
 	public BanInterface getBanObject() { return banObject; }
+	
+	public boolean isDutyEligible(Player p) {
+		return has(p, "loginlimiter.duty");
+	}
+	public List<Player> getDutyEligiblePlayers() {
+		Player[] players = getServer().getOnlinePlayers();
+		ArrayList<Player> result = new ArrayList<Player>(players.length/2); 
+		for(int i=0; i < players.length; i++) {
+			if( isDutyEligible(players[i]) )
+				result.add(players[i]);
+		}
+		return result;
+	}
 
 	private void setupPermissions() {
 		if( !setupVaultPermissions() )
