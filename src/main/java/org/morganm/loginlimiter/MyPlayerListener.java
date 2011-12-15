@@ -102,14 +102,14 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 				if( !queue.isEligible(playerName, freeCount) ) {
 					String msg = null;
 					if( playerAdded ) {
-						msg = plugin.getConfig().getString("messages.queued", "Server full, now queued (${queueNumber}/${queueTotal}). Connect at least every ${queueLoginTime} to hold spot");
+						msg = plugin.getConfig().getString("messages.queued", "Now queued: (${queueNumber}/${queueTotal}). Connect once every ${queueLoginTime} to hold spot");
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
 						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
 								shortTime(queue.getQueueLoginTime(playerName)));
 					}
 					else {
-						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect at least every ${queueLoginTime} to hold spot");
+						msg = plugin.getConfig().getString("messages.queued", "Queued: ${queueNumber} of ${queueTotal}. Connect once every ${queueLoginTime} to hold spot");
 						msg = msg.replaceAll("\\$\\{queueNumber\\}", Integer.toString(queue.getQueuePosition(playerName)));
 						msg = msg.replaceAll("\\$\\{queueTotal\\}", Integer.toString(queue.getQueueSize()));
 						msg = msg.replaceAll("\\$\\{queueLoginTime\\}",
@@ -117,7 +117,12 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 						queue.loginAttempt(playerName);
 					}
 					
-					event.disallow(Result.KICK_OTHER, msg);
+					String kickMsg = event.getKickMessage();
+					if( kickMsg == null )
+						kickMsg = msg;
+					else
+						kickMsg = kickMsg + " " + msg;
+					event.disallow(Result.KICK_OTHER, kickMsg);
 				}
 			}
 			else {
@@ -367,6 +372,8 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 							// record the smallest limit remaining that we encounter for this player
 							if( smallestLimit == -1 || (limit - groupCount) < smallestLimit )
 								smallestLimit = limit - groupCount;
+							if( requiredPermRatioLimit != -1 && (requiredPermRatioLimit - groupCount) < smallestLimit )
+								smallestLimit = limit - requiredPermRatioLimit;
 						} // end if( plugin.has(p, perm) )
 						else
 							debug.debug("checkGroupLimits(): node ",node,", player ",thisPlayer," DOES NOT HAVE permission ",perm);
@@ -376,12 +383,12 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		} // end if( nodes != null ) 
 		
 		if( !limitAllowed ) {
-			String msg = plugin.getConfig().getString("messages.limitReached", "The number of reserved slots for your rank has been reached. Try again later");
+			String msg = plugin.getConfig().getString("messages.limitReached", "The # of reserved slots for your rank is full.");
 			event.disallow(Result.KICK_OTHER, msg);
 		}
 		
 		if( !requiredPermsLoginFlag ) {
-			String msg = plugin.getConfig().getString("messages.noPermsOnlineString", "The required rank is not online at this time");
+			String msg = plugin.getConfig().getString("messages.noPermsOnlineString", "The required rank is not online.");
 			event.disallow(Result.KICK_OTHER, msg);
 			noRequiredPermsRejects.add(thisPlayer);
 			if( plugin.getConfig().getBoolean("verbose", true) ) {
