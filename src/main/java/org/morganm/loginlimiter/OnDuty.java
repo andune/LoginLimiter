@@ -47,9 +47,10 @@ public class OnDuty {
 				sbOffDuty.append(s);
 				
 				// since this player is off duty, remove them from the on duty list
-				for(Player p : dutyEligibleOnline) {
+				for(Iterator<Player> i = dutyEligibleOnline.iterator(); i.hasNext();) {
+					Player p = i.next();
 					if( offDutyList.contains(p.getName()) ) {
-						dutyEligibleOnline.remove(p.getName());
+						i.remove();
 						break;
 					}
 				}
