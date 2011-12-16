@@ -360,9 +360,11 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 											
 											// requiredPermRatio checks apply regardless of ifOver limit
 											if( requiredPermRatioLimit != -1 && groupCount >= requiredPermRatioLimit ) {
-												debug.debug("checkGroupLimits(): node ",node,", permission ",perm," requiredPermRatioLimit exceeded (",groupCount," >= ",requiredPermRatioLimit,") player ",thisPlayer," is over the limit");
-												limitAllowed = false;
-												break;
+												if( !requiredPermsOnlyForNew || (requiredPermsOnlyForNew && plugin.isNewPlayer(thisPlayer)) ) {
+													debug.debug("checkGroupLimits(): node ",node,", permission ",perm," requiredPermRatioLimit exceeded (",groupCount," >= ",requiredPermRatioLimit,") player ",thisPlayer," is over the limit");
+													limitAllowed = false;
+													break;
+												}
 											}
 										}
 									}

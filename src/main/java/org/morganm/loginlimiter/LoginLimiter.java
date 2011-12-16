@@ -82,6 +82,7 @@ public class LoginLimiter extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		getServer().getScheduler().cancelTasks(this);
 		log.info(logPrefix + "version "+version+", build "+buildNumber+" is disabled");
 	}
 	
