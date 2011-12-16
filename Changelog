@@ -1,3 +1,8 @@
+v0.4 - December 15, 2011
+* lots of minor bug fixes
+* added "requiredPermRatio", allows you to define a ratio between groupings
+and required ranks (ie. only allow 2 guests per every 1 mod online).
+
 v0.3 - December 10, 2011
 * fixed bug with queueLoginTime not being reset when the player attempted a login
 * direct integration with mcbans, avoid a banned player waiting in the queue. will result in mcbans spam when player first tries to join, but caches ban status after that to avoid future spam
