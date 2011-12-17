@@ -114,7 +114,7 @@ public class LoginLimiter extends JavaPlugin {
 			}
 			
 			// also echo to console
-			getServer().getConsoleSender().sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
+			log.info(logPrefix+"Total noPermission/duty rejections today: "+numRejects);
 		}
 	}
 	

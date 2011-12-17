@@ -36,8 +36,8 @@ public class MCBansImpl implements BanInterface {
 		Boolean banned = banCache.get(playerName);
 		if( banned == null )
 			banned = Boolean.FALSE;
-		else if( banned )
-			return true;
+		else
+			return banned;		// return cached value
 		
 		Connect playerConnect = new Connect( mcbans );
 		String result = playerConnect.exec( playerName, playerIP );
