@@ -99,20 +99,22 @@ public class LoginLimiter extends JavaPlugin {
 			this.listener = listener;
 		}
 		public void run() {
+			Set<String> rejects = listener.getNoRequiredPermsRejects();
+			int numRejects = rejects.size();
+			
 			// send a tickler to every OFF duty eligible player to let them know how many people
 			// we've rejected today as a result of being OFF duty
 			List<Player> dutyEligible = plugin.getDutyEligiblePlayers();
 			if( dutyEligible.size() > 0 ) {
-				Set<String> rejects = listener.getNoRequiredPermsRejects();
-				int numRejects = rejects.size();
 				for(Player p : dutyEligible) {
 					if( onDuty.isOffDuty(p.getName()) ) {
 						p.sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
 					}
 				}
-				// also echo to console
-				getServer().getConsoleSender().sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
 			}
+			
+			// also echo to console
+			getServer().getConsoleSender().sendMessage(ChatColor.YELLOW+"Total noPermission/duty rejections today: "+numRejects);
 		}
 	}
 	
