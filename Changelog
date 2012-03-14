@@ -1,3 +1,7 @@
+v0.5 - March 14, 2012
+* R6 compatibility
+* lots of little bug fixes since last release
+
 v0.4 - December 15, 2011
 * lots of minor bug fixes
 * added "requiredPermRatio", allows you to define a ratio between groupings

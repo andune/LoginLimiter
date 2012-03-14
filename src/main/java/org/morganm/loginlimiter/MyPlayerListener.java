@@ -12,7 +12,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerListener;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent.Result;
@@ -23,7 +25,7 @@ import org.morganm.loginlimiter.bans.BanInterface;
  * @author morganm
  *
  */
-public class MyPlayerListener extends PlayerListener implements ConfigConstants {
+public class MyPlayerListener implements Listener, ConfigConstants {
 	private static final Logger log = LoginLimiter.log;
 	private static final String logPrefix = LoginLimiter.logPrefix;
 	
@@ -39,7 +41,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		this.ban = plugin.getBanObject();
 	}
 	
-	@Override
+	@EventHandler(priority=EventPriority.LOWEST)
 	public void onPlayerPreLogin(PlayerPreLoginEvent event) {
 		// if the login was already refused by another plugin, don't do anything
 		if( event.getResult() != Result.ALLOWED )
@@ -136,7 +138,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 		}
 	}
 	
-	@Override
+	@EventHandler(priority=EventPriority.LOWEST)
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		plugin.getLoginQueue().addReconnectPlayer(event.getPlayer());
 	}
@@ -160,7 +162,6 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 	 * @param event
 	 * @return the number of available slots on the server, or -2 if player is exempt from queue limits
 	 */
-	@SuppressWarnings("unchecked")
 	private int checkGlobalLimits(PlayerPreLoginEvent event) {
 		String playerName = event.getName();
 		Player[] onlinePlayers = plugin.getServer().getOnlinePlayers();
@@ -214,7 +215,6 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 	 * @return the remaining slots for this player's group category, or -1 if this player is part of
 	 * an unlimited group
 	 */
-	@SuppressWarnings("unchecked")
 	private int checkGroupLimits(PlayerPreLoginEvent event) {
 		String thisPlayer = event.getName();
 
@@ -408,7 +408,7 @@ public class MyPlayerListener extends PlayerListener implements ConfigConstants 
 	 * AFTER we know someone has successfully logged in (this is done at priority MONITOR).
 	 * 
 	 */
-	@Override
+	@EventHandler(priority=EventPriority.MONITOR)
 	public void onPlayerLogin(PlayerLoginEvent event) {
 		// do nothing if the login has been rejected
 		if( event.getResult() != org.bukkit.event.player.PlayerLoginEvent.Result.ALLOWED )

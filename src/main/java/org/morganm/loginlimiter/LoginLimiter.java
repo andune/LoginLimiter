@@ -14,23 +14,13 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
-import net.milkbowl.vault.permission.Permission;
-
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.event.Event.Type;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.morganm.loginlimiter.bans.BanFactory;
 import org.morganm.loginlimiter.bans.BanInterface;
-
-import com.sk89q.bukkit.migration.PermissionsResolverManager;
-import com.sk89q.bukkit.migration.PermissionsResolverServerListener;
 
 /**
  * @author morganm
@@ -40,8 +30,6 @@ public class LoginLimiter extends JavaPlugin {
 	public static final Logger log = Logger.getLogger(LoginLimiter.class.toString());
 	public static final String logPrefix = "[LoginLimiter] ";
 	
-    private Permission vaultPermission = null;
-    private PermissionsResolverManager wepifPerms = null;
     private LoginQueue loginQueue;
     private BanInterface banObject;
     private OnDuty onDuty;
@@ -50,6 +38,7 @@ public class LoginLimiter extends JavaPlugin {
 	private boolean configLoaded = false;
 	private MyPlayerListener playerListener;
 	private BanListener banListener;
+	private PermissionSystem perms;
 
 	@Override
 	public void onEnable() {
@@ -66,13 +55,9 @@ public class LoginLimiter extends JavaPlugin {
 		
 		playerListener = new MyPlayerListener(this);
 		banListener = new BanListener(this);
-		
-		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, playerListener, Priority.Lowest, this);
-		getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, playerListener, Priority.Lowest, this);
-		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, playerListener, Priority.Monitor, this);
-		
-		getServer().getPluginManager().registerEvent(Type.PLAYER_PRELOGIN, banListener, Priority.Monitor, this);
-		getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, banListener, Priority.Monitor, this);
+
+		getServer().getPluginManager().registerEvents(playerListener, this);
+		getServer().getPluginManager().registerEvents(banListener, this);
 		
 		// run every 30 minutes
 		getServer().getScheduler().scheduleAsyncRepeatingTask(this, new ScheduleRunner(this, playerListener), 36000, 36000);
@@ -218,44 +203,10 @@ public class LoginLimiter extends JavaPlugin {
 	}
 
 	private void setupPermissions() {
-		if( !setupVaultPermissions() )
-			if( !setupWEPIFPermissions() ) {
-				log.warning(logPrefix+" No Vault or WEPIF perms found, permissions functioning in degraded mode (superperms does NOT support prelogin or offline permissions).");
-			}
+    	perms = new PermissionSystem(this, log, logPrefix);
+    	perms.setupPermissions();
 	}
 	
-    private Boolean setupVaultPermissions()
-    {
-    	Plugin vault = getServer().getPluginManager().getPlugin("Vault");
-    	if( vault != null ) {
-	        RegisteredServiceProvider<Permission> permissionProvider = getServer().getServicesManager().getRegistration(net.milkbowl.vault.permission.Permission.class);
-	        if (permissionProvider != null) {
-	        	Debug.getInstance().debug("Vault permissions found and enabled");
-	            vaultPermission = permissionProvider.getProvider();
-	        }
-    	}
-    	else
-        	Debug.getInstance().debug("Vault permissions not found");
-    	
-        return (vaultPermission != null);
-    }
-    
-    private boolean setupWEPIFPermissions() {
-    	try {
-	    	Plugin worldEdit = getServer().getPluginManager().getPlugin("WorldEdit");
-	    	if( worldEdit != null ) {
-		    	wepifPerms = new PermissionsResolverManager(this, "LoginLimiter", log);
-		    	(new PermissionsResolverServerListener(wepifPerms, this)).register(this);
-		    	Debug.getInstance().debug("WEPIF permissions enabled");
-	    	}
-    	}
-    	catch(Exception e) {
-    		log.info(logPrefix + " Unexpected error trying to setup WEPIF permissions hooks (this message can be ignored): "+e.getMessage());
-    	}
-    	
-    	return wepifPerms != null;
-    }
-    
     public boolean isNewPlayer(String playerName) {
     	boolean newPlayerFlag = true;
     	
@@ -292,31 +243,11 @@ public class LoginLimiter extends JavaPlugin {
      * @return true if the player has the permission, false if not
      */
     public boolean has(CommandSender sender, String permission) {
-    	Player p = null;
-    	// console always has access
-    	if( sender instanceof ConsoleCommandSender )
-    		return true;
-    	if( sender instanceof Player )
-    		p = (Player) sender;
-    	
-    	if( p == null )
-    		return false;
-    	
-    	if( vaultPermission != null )
-    		return vaultPermission.has(p, permission);
-    	else if( wepifPerms != null )
-    		return wepifPerms.hasPermission(p.getName(), permission);
-    	else
-    		return p.hasPermission(permission);		// fall back to superperms
+    	return perms.has(sender, permission);
     }
     
     public boolean has(String player, String permission) {
-    	if( vaultPermission != null )
-    		return vaultPermission.has("world", player, permission);
-    	else if( wepifPerms != null )
-    		return wepifPerms.hasPermission(player, permission);
-    	else
-    		return false;	// no options with superperms
+    	return perms.has(player, permission);
     }
     
     /*

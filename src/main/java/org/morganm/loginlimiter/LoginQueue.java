@@ -131,7 +131,6 @@ public class LoginQueue implements ConfigConstants {
 	 * @param playerName
 	 * @return
 	 */
-	@SuppressWarnings("unchecked")
 	public int getQueueLoginTime(String playerName) {
 		if( playerName == null )
 			return 0;

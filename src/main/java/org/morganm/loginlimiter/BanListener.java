@@ -3,7 +3,9 @@
  */
 package org.morganm.loginlimiter;
 
-import org.bukkit.event.player.PlayerListener;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerPreLoginEvent;
 import org.morganm.loginlimiter.bans.BanInterface;
@@ -15,7 +17,7 @@ import org.morganm.loginlimiter.bans.BanInterface;
  * @author morganm
  *
  */
-public class BanListener extends PlayerListener {
+public class BanListener implements Listener {
 	private LoginLimiter plugin;
 	private BanInterface ban;
 	
@@ -24,14 +26,14 @@ public class BanListener extends PlayerListener {
 		this.ban = this.plugin.getBanObject();
 	}
 	
-	@Override
+	@EventHandler(priority=EventPriority.MONITOR)
 	public void onPlayerPreLogin(PlayerPreLoginEvent event) {
 		if( event.getResult() == org.bukkit.event.player.PlayerPreLoginEvent.Result.KICK_BANNED ) {
 			ban.updateCache(event.getName(), true);
 		}
 	}
 
-	@Override
+	@EventHandler(priority=EventPriority.MONITOR)
 	public void onPlayerLogin(PlayerLoginEvent event) {
 		if( event.getResult() == org.bukkit.event.player.PlayerLoginEvent.Result.KICK_BANNED ) {
 			ban.updateCache(event.getPlayer().getName(), true);
