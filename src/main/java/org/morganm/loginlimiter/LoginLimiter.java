@@ -14,7 +14,9 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -210,27 +212,15 @@ public class LoginLimiter extends JavaPlugin {
     public boolean isNewPlayer(String playerName) {
     	boolean newPlayerFlag = true;
     	
-    	String playerDat = playerName + ".dat";
+		File worldContainer = Bukkit.getWorldContainer();
+		
+		final List<World> worlds = Bukkit.getWorlds();
+		final String worldName = worlds.get(0).getName();
+    	final String playerDat = playerName + ".dat";
     	
-    	// start with the easy, most likely check
-    	File file = new File("world/players/"+playerDat);
+    	File file = new File(worldContainer, worldName+"/players/"+playerDat);
     	if( file.exists() )
     		newPlayerFlag = false;
-    	
-    	/* It seems all player files go to the defaultWorld, so this part is unnecessary.
-    	 * Not sure if it's possible to change the default world, should probably look
-    	 * into that and adjust the above check accordingly.
-    	 * 
-    	// failing that, check all worlds
-    	List<World> worlds = getServer().getWorlds();
-    	for(World w : worlds) {
-    		file = new File(w.getName()+"/players/"+playerDat);
-    		if( file.exists() )
-    			return false;
-    	}
-    	*/
-    	
-    	Debug.getInstance().debug("isNewPlayer() playerName=",playerName,", result=",newPlayerFlag);
     	
     	// if we didn't find any record of this player on any world, they must be new
     	return newPlayerFlag;
