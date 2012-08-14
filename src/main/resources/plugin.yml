@@ -1,6 +1,7 @@
-name: LoginLimiter
+name: ${project.name}
 main: org.morganm.loginlimiter.LoginLimiter
-version: 0.5
+url: ${project.url}
+version: ${project.version}
 author: morganm
 commands:
   ll:

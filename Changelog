@@ -1,3 +1,6 @@
+v0.5.1 - August 14, 2012
+* disabled mcbans integration (broken with MCBans 3.8 and possibly no longer necessary)
+
 v0.5 - March 14, 2012
 * R6 compatibility
 * lots of little bug fixes since last release

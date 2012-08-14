@@ -39,6 +39,7 @@ public class MCBansImpl implements BanInterface {
 		else
 			return banned;		// return cached value
 		
+		/* disabled for now until I can add mcbans 3.8 support
 		Connect playerConnect = new Connect( mcbans );
 		String result = playerConnect.exec( playerName, playerIP );
 		if( result != null ){
@@ -47,6 +48,7 @@ public class MCBansImpl implements BanInterface {
 		}
 		else
 			banCache.put(playerName, Boolean.FALSE);
+			*/
 		
 		return banned.booleanValue();
 	}
